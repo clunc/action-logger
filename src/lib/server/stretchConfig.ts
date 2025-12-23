@@ -116,7 +116,7 @@ function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: Pillar
 			throw new Error(`${fileName} entry ${idx + 1} is not an object`);
 		}
 
-		const { name, defaultDurationSeconds, holdLabels, pillar, pillarEmoji, pillar_emoji } = entry as Record<
+		const { name, defaultDurationSeconds, holdLabels, pillar, pillarEmoji, pillar_emoji, priority } = entry as Record<
 			string,
 			unknown
 		>;
@@ -143,13 +143,20 @@ function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: Pillar
 			normalizedPillar && pillarEmojiMap[normalizedPillar.toLowerCase()] !== undefined
 				? pillarEmojiMap[normalizedPillar.toLowerCase()]
 				: undefined;
+		const normalizedPriority =
+			priority === undefined
+				? undefined
+				: Number.isFinite(Number(priority)) && Number(priority) >= 0
+					? Math.round(Number(priority))
+					: undefined;
 
 		return {
 			name: name.trim(),
 			defaultDurationSeconds: Math.max(0, Math.round(defaultDurationSeconds)),
 			holdLabels: normalizeLabels(holdLabels),
 			pillar: normalizedPillar,
-			pillarEmoji: normalizedEmoji ?? autoEmoji
+			pillarEmoji: normalizedEmoji ?? autoEmoji,
+			priority: normalizedPriority
 		};
 	});
 }

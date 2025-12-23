@@ -19,6 +19,7 @@ export type SessionStretch = {
 	holdLabels?: string[];
 	pillar?: string;
 	pillarEmoji?: string;
+	priority?: number;
 };
 
 export type StretchTemplate = {
@@ -27,6 +28,7 @@ export type StretchTemplate = {
 	holdLabels?: string[];
 	pillar?: string;
 	pillarEmoji?: string;
+	priority?: number;
 };
 
 export type PillarEmojiMap = Record<string, string>;
