@@ -1,13 +1,102 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
-import type { StretchTemplate } from '$lib/types';
+import type { PillarEmojiMap, StretchTemplate } from '$lib/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const TODOS_FILE = path.join(DATA_DIR, 'todos.yaml');
 const STRETCHES_FILE = path.join(DATA_DIR, 'stretches.yaml'); // kept for backward compatibility
+const PILLARS_FILE = path.join(DATA_DIR, 'pillars.yaml');
+const PILLARS_EXAMPLE_FILE = path.join(DATA_DIR, 'pillars.example.yaml');
 
 let cachedTemplate: { mtimeMs: number; value: StretchTemplate[]; file: string } | null = null;
+
+const DEFAULT_PILLAR_EMOJIS: PillarEmojiMap = {
+	planning: '🧭',
+	operations: '🛠️',
+	focus: '🎯',
+	recovery: '🌿',
+	physical_health: '💪',
+	mental_clarity: '🧠',
+	purpose: '✨',
+	stability: '💼',
+	mobility: '🤸',
+	career: '💼',
+	finances: '💰',
+	health: '💪',
+	learning: '📚',
+	relationships: '❤️'
+};
+
+async function ensurePillarsExample() {
+	await fs
+		.access(PILLARS_EXAMPLE_FILE)
+		.catch(() =>
+			fs.writeFile(
+				PILLARS_EXAMPLE_FILE,
+				`# Map pillar names to emojis. Keys are case-insensitive.\n` +
+					`pillars:\n` +
+					Object.entries(DEFAULT_PILLAR_EMOJIS)
+						.map(([key, emoji]) => `  ${key}: "${emoji}"`)
+						.join('\n') +
+					'\n',
+				'utf8'
+			)
+		);
+}
+
+async function loadPillarEmojiMap(): Promise<{ map: PillarEmojiMap; version: number | null }> {
+	await fs.mkdir(DATA_DIR, { recursive: true });
+	await ensurePillarsExample();
+
+	let sourcePath: string | null = null;
+	let version: number | null = null;
+
+	const primary = await fs
+		.stat(PILLARS_FILE)
+		.then((stats) => {
+			sourcePath = PILLARS_FILE;
+			version = stats.mtimeMs;
+			return fs.readFile(PILLARS_FILE, 'utf8');
+		})
+		.catch(() => null);
+
+	const raw =
+		primary ??
+		(await fs
+			.stat(PILLARS_EXAMPLE_FILE)
+			.then((stats) => {
+				sourcePath = PILLARS_EXAMPLE_FILE;
+				version = stats.mtimeMs;
+				return fs.readFile(PILLARS_EXAMPLE_FILE, 'utf8');
+			})
+			.catch(() => null));
+
+	if (!raw) {
+		return { map: { ...DEFAULT_PILLAR_EMOJIS }, version: null };
+	}
+
+	const parsed = YAML.parse(raw) as { pillars?: unknown };
+	const incoming = parsed?.pillars;
+	if (!incoming || typeof incoming !== 'object') {
+		return { map: { ...DEFAULT_PILLAR_EMOJIS }, version };
+	}
+
+	const entries = Object.entries(incoming as Record<string, unknown>).filter(
+		([, v]) => typeof v === 'string' && (v as string).trim()
+	);
+
+	if (!entries.length) {
+		return { map: { ...DEFAULT_PILLAR_EMOJIS }, version };
+	}
+
+	const map: PillarEmojiMap = {};
+	for (const [key, emoji] of entries) {
+		map[key.toLowerCase()] = (emoji as string).trim();
+	}
+
+	return { map: { ...DEFAULT_PILLAR_EMOJIS, ...map }, version };
+}
 
 function normalizeLabels(labels: unknown): string[] | undefined {
 	if (!Array.isArray(labels)) return undefined;
@@ -15,7 +104,7 @@ function normalizeLabels(labels: unknown): string[] | undefined {
 	return cleaned.length ? cleaned : undefined;
 }
 
-function validateTemplate(raw: unknown, fileName: string): StretchTemplate[] {
+function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: PillarEmojiMap): StretchTemplate[] {
 	if (!Array.isArray(raw)) {
 		throw new Error(`${fileName} must be an array of todos`);
 	}
@@ -27,7 +116,10 @@ function validateTemplate(raw: unknown, fileName: string): StretchTemplate[] {
 			throw new Error(`${fileName} entry ${idx + 1} is not an object`);
 		}
 
-		const { name, defaultDurationSeconds, holdLabels } = entry as Record<string, unknown>;
+		const { name, defaultDurationSeconds, holdLabels, pillar, pillarEmoji, pillar_emoji } = entry as Record<
+			string,
+			unknown
+		>;
 
 		if (typeof name !== 'string' || !name.trim()) {
 			throw new Error(`${fileName} entry ${idx + 1} is missing a valid name`);
@@ -43,10 +135,21 @@ function validateTemplate(raw: unknown, fileName: string): StretchTemplate[] {
 
 		seen.add(name);
 
+		const normalizedPillar = typeof pillar === 'string' && pillar.trim() ? pillar.trim() : undefined;
+		const rawPillarEmoji = typeof pillarEmoji === 'string' ? pillarEmoji : pillar_emoji;
+		const normalizedEmoji =
+			typeof rawPillarEmoji === 'string' && rawPillarEmoji.trim() ? rawPillarEmoji.trim() : undefined;
+		const autoEmoji =
+			normalizedPillar && pillarEmojiMap[normalizedPillar.toLowerCase()] !== undefined
+				? pillarEmojiMap[normalizedPillar.toLowerCase()]
+				: undefined;
+
 		return {
 			name: name.trim(),
 			defaultDurationSeconds: Math.max(0, Math.round(defaultDurationSeconds)),
-			holdLabels: normalizeLabels(holdLabels)
+			holdLabels: normalizeLabels(holdLabels),
+			pillar: normalizedPillar,
+			pillarEmoji: normalizedEmoji ?? autoEmoji
 		};
 	});
 }
@@ -67,11 +170,11 @@ async function ensureTemplateFile() {
 	if (hasStretches) return STRETCHES_FILE;
 
 	const fallback: StretchTemplate[] = [
-		{ name: 'Plan the day', defaultDurationSeconds: 300 },
-		{ name: 'Inbox triage', defaultDurationSeconds: 600 },
-		{ name: 'Deep work block', defaultDurationSeconds: 1500 },
-		{ name: 'Walk and reset', defaultDurationSeconds: 600 },
-		{ name: 'Shutdown routine', defaultDurationSeconds: 420 }
+		{ name: 'Plan the day', defaultDurationSeconds: 300, pillar: 'Planning', pillarEmoji: '🧭' },
+		{ name: 'Inbox triage', defaultDurationSeconds: 600, pillar: 'Operations', pillarEmoji: '🛠️' },
+		{ name: 'Deep work block', defaultDurationSeconds: 1500, pillar: 'Focus', pillarEmoji: '🎯' },
+		{ name: 'Walk and reset', defaultDurationSeconds: 600, pillar: 'Recovery', pillarEmoji: '🌿' },
+		{ name: 'Shutdown routine', defaultDurationSeconds: 420, pillar: 'Planning', pillarEmoji: '🧭' }
 	];
 	const yaml = YAML.stringify(fallback);
 	await fs.writeFile(TODOS_FILE, yaml, 'utf8');
@@ -79,6 +182,7 @@ async function ensureTemplateFile() {
 }
 
 export async function loadStretchTemplate(): Promise<{ template: StretchTemplate[]; version: number }> {
+	const { map: pillarEmojiMap } = await loadPillarEmojiMap();
 	const templatePath = await ensureTemplateFile();
 	const stats = await fs.stat(templatePath);
 
@@ -88,7 +192,7 @@ export async function loadStretchTemplate(): Promise<{ template: StretchTemplate
 
 	const raw = await fs.readFile(templatePath, 'utf8');
 	const parsed = YAML.parse(raw);
-	const template = validateTemplate(parsed, path.basename(templatePath));
+	const template = validateTemplate(parsed, path.basename(templatePath), pillarEmojiMap);
 
 	cachedTemplate = { mtimeMs: stats.mtimeMs, value: template, file: templatePath };
 	return { template, version: stats.mtimeMs };

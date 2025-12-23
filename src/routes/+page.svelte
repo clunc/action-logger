@@ -281,6 +281,9 @@
 				<StretchCard
 					{stretch}
 					{stretchIdx}
+					recurrenceLabel="Daily"
+					pillarLabel={stretch.pillar}
+					pillarEmoji={stretch.pillarEmoji}
 					onLogHold={handleHoldAction}
 					onUndoHold={undoHold}
 				/>

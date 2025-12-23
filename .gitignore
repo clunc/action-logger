@@ -102,6 +102,7 @@ dist
 
 # Local runtime data
 data/
+!data/*.example.yaml
 
 # vitepress build output
 **/.vitepress/dist

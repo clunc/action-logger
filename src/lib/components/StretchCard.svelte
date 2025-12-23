@@ -5,27 +5,46 @@ export let stretch: SessionStretch;
 export let stretchIdx: number;
 export let onLogHold: (stretchIdx: number, holdIdx: number) => void;
 export let onUndoHold: (stretchIdx: number, holdIdx: number) => void;
+export let recurrenceLabel: string = 'Daily';
+export let pillarLabel: string | undefined = undefined;
+export let pillarEmoji: string | undefined = undefined;
 
 	$: isPicked = stretch.holds.some((hold) => hold.completed);
 </script>
 
 <section class={`card ${isPicked ? 'picked' : ''}`}>
 	<header class="card-header">
-		<div class="card-title">{stretch.name}</div>
-		<div class="card-actions">
-			{#each stretch.holds as hold, holdIdx}
-				<button
-					class={`check-btn ${hold.completed ? 'done' : ''}`}
-					aria-label={hold.completed ? 'Undo todo' : 'Complete todo'}
-					on:click={() =>
-						hold.completed
-							? onUndoHold(stretchIdx, holdIdx)
-							: onLogHold(stretchIdx, holdIdx)}
-					type="button"
-				>
-					{hold.completed ? '✕' : '✓'}
-				</button>
-			{/each}
+		<div class="card-row top">
+			<div class="recurrence-pill" aria-label="Recurring task">
+				<span class="pill-icon">🔁</span>
+				{recurrenceLabel}
+			</div>
+			{#if pillarLabel}
+				<div class="pillar-pill" aria-label="Pillar">
+					{#if pillarEmoji}
+						<span class="pill-icon">{pillarEmoji}</span>
+					{/if}
+					{pillarLabel}
+				</div>
+			{/if}
+		</div>
+		<div class="card-row bottom">
+			<div class="title-text">{stretch.name}</div>
+			<div class="card-actions">
+				{#each stretch.holds as hold, holdIdx}
+					<button
+						class={`check-btn ${hold.completed ? 'done' : ''}`}
+						aria-label={hold.completed ? 'Undo todo' : 'Complete todo'}
+						on:click={() =>
+							hold.completed
+								? onUndoHold(stretchIdx, holdIdx)
+								: onLogHold(stretchIdx, holdIdx)}
+						type="button"
+					>
+						{hold.completed ? '✕' : '✓'}
+					</button>
+				{/each}
+			</div>
 		</div>
 	</header>
 </section>
@@ -49,18 +68,48 @@ export let onUndoHold: (stretchIdx: number, holdIdx: number) => void;
 	.card-header {
 		padding: 14px 16px;
 		border-bottom: 1px solid #f3f4f6;
+		display: grid;
+		grid-template-columns: 1fr;
+		row-gap: 10px;
+	}
+
+	.card-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 10px;
 	}
 
-	.card-title {
+	.title-text {
+		display: inline-flex;
+		align-items: center;
 		font-size: 18px;
 		font-weight: 600;
 		color: #172133;
 	}
 
+	.recurrence-pill,
+	.pillar-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		background: #f1f5f9;
+		color: #0f172a;
+		border: 1px solid #e2e8f0;
+		border-radius: 999px;
+		padding: 6px 10px;
+		font-size: 12px;
+		font-weight: 700;
+	}
+
+	.pillar-pill {
+		background: #eef2ff;
+		border-color: #c7d2fe;
+		color: #4338ca;
+	}
+
+	.pill-icon {
+		font-size: 14px;
+	}
 	.card-actions {
 		display: flex;
 		gap: 10px;
