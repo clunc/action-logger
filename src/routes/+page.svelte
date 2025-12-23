@@ -61,6 +61,9 @@
 		const timestamp = new Date().toISOString();
 		const durationSeconds = 0;
 
+		const prevHistory = [...history];
+		const prevTaskState = JSON.stringify(currentSession);
+
 		subtask.completed = true;
 		subtask.timestamp = timestamp;
 		subtask.durationSeconds = durationSeconds;
@@ -81,7 +84,9 @@
 				await syncHistory();
 			} catch (error) {
 				console.error(error);
-				loadError = 'Could not save history. Changes will not be saved.';
+				loadError = 'Could not save action; reverted.';
+				history = prevHistory;
+				currentSession = JSON.parse(prevTaskState);
 			}
 		}
 
@@ -92,6 +97,9 @@
 		const task = currentSession[taskIdx];
 		const subtask = task.subtasks[subtaskIdx];
 		if (!subtask.completed || !subtask.timestamp) return;
+
+		const prevHistory = [...history];
+		const prevTaskState = JSON.stringify(currentSession);
 
 		const entry = {
 			task: task.name,
@@ -104,7 +112,9 @@
 			loadError = '';
 		} catch (error) {
 			console.error(error);
-			loadError = 'Could not delete entry. History remains unchanged.';
+			loadError = 'Could not undo action; reverted.';
+			history = prevHistory;
+			currentSession = JSON.parse(prevTaskState);
 			return;
 		}
 
