@@ -1,0 +1,75 @@
+- name: Plan the day
+  defaultDurationSeconds: 300
+  pillar: career
+  recurrence:
+    frequency: daily
+- name: Inbox triage
+  defaultDurationSeconds: 600
+  pillar: career
+  recurrence:
+    frequency: daily
+- name: Deep work block
+  defaultDurationSeconds: 1500
+  pillar: career
+  recurrence:
+    frequency: daily
+- name: Take a walk reset
+  defaultDurationSeconds: 600
+  pillar: health
+  recurrence:
+    frequency: daily
+- name: Project check-in
+  defaultDurationSeconds: 900
+  pillar: career
+  recurrence:
+    frequency: daily
+- name: Code review / feedback
+  defaultDurationSeconds: 900
+  pillar: career
+  recurrence:
+    frequency: daily
+- name: Admin + billing cleanup
+  defaultDurationSeconds: 600
+  pillar: finances
+  recurrence:
+    frequency: daily
+- name: Learning / reading
+  defaultDurationSeconds: 900
+  pillar: learning
+  recurrence:
+    frequency: daily
+- name: Health break (water & snack)
+  defaultDurationSeconds: 300
+  pillar: health
+  recurrence:
+    frequency: daily
+- name: Shutdown routine
+  defaultDurationSeconds: 420
+  pillar: career
+  recurrence:
+    frequency: daily
+- name: Weekly check-in (Tuesday)
+  defaultDurationSeconds: 600
+  pillar: career
+  recurrence:
+    frequency: weekly
+    days: [Tue]
+- name: Weekly planning (Mon/Thu)
+  defaultDurationSeconds: 600
+  pillar: career
+  recurrence:
+    frequency: weekly
+    days: [Mon, Thu]
+- name: Monthly finance review
+  defaultDurationSeconds: 900
+  pillar: finances
+  recurrence:
+    frequency: monthly
+    day_of_month: 23
+- name: Annual goals reset
+  defaultDurationSeconds: 1800
+  pillar: career
+  recurrence:
+    frequency: yearly
+    month: 12
+    day: 23
