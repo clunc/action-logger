@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getTaskTemplateVersion } from '$lib/server/stretchConfig';
+import { getTaskTemplateVersion } from '$lib/server/taskConfig';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {

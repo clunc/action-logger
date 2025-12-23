@@ -31,7 +31,7 @@ recurring:
     time_block: "19:30–19:50"
     priority: 7
     context: mobility_logger
-    notes: "Hip and shoulder stretches"
+    notes: "Hip and shoulder mobility"
 
   - title: Weekly Review
     type: retrospective

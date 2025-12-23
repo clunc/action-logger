@@ -23,28 +23,42 @@ let sqliteLoadError: unknown = null;
 
 function getDataPaths() {
 	const baseDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : DEFAULT_DATA_DIR;
-	return {
-		dir: baseDir,
-		dbFile: path.join(baseDir, 'stretch.db')
-	};
+	const primary = { dir: baseDir, dbFile: path.join(baseDir, 'actions.db') };
+	const legacy = { dir: baseDir, dbFile: path.join(baseDir, 'stretch.db') };
+	return { primary, legacy };
 }
 
 async function ensureDbFile() {
-	const primary = getDataPaths();
+	const { primary, legacy } = getDataPaths();
 	try {
 		await fs.mkdir(primary.dir, { recursive: true });
-		await fs.access(primary.dbFile).catch(async () => {
-			await fs.writeFile(primary.dbFile, '');
-		});
-		return primary;
+		// Reuse legacy file if it exists; otherwise use the new actions.db
+		const targetFile = await fs
+			.access(legacy.dbFile)
+			.then(() => legacy.dbFile)
+			.catch(async () => {
+				await fs.access(primary.dbFile).catch(async () => {
+					await fs.writeFile(primary.dbFile, '');
+				});
+				return primary.dbFile;
+			});
+
+		return { dir: primary.dir, dbFile: targetFile };
 	} catch (error) {
 		console.error('historyStore: primary data dir failed, using fallback', error);
-		const fallback = { dir: FALLBACK_DATA_DIR, dbFile: path.join(FALLBACK_DATA_DIR, 'stretch.db') };
+		const fallbackLegacy = path.join(FALLBACK_DATA_DIR, 'stretch.db');
+		const fallback = { dir: FALLBACK_DATA_DIR, dbFile: path.join(FALLBACK_DATA_DIR, 'actions.db') };
 		await fs.mkdir(fallback.dir, { recursive: true });
-		await fs.access(fallback.dbFile).catch(async () => {
-			await fs.writeFile(fallback.dbFile, '');
-		});
-		return fallback;
+		const targetFile = await fs
+			.access(fallbackLegacy)
+			.then(() => fallbackLegacy)
+			.catch(async () => {
+				await fs.access(fallback.dbFile).catch(async () => {
+					await fs.writeFile(fallback.dbFile, '');
+				});
+				return fallback.dbFile;
+			});
+		return { dir: fallback.dir, dbFile: targetFile };
 	}
 }
 
@@ -55,16 +69,65 @@ function initDb(dbFile: string) {
 
 	const db = new Database(dbFile);
 	db.pragma('journal_mode = WAL');
+	ensureHistoryTable(db);
+	return db;
+}
+
+function ensureHistoryTable(db: any) {
+	const hasTable = db
+		.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='history'`)
+		.get();
+	if (!hasTable) {
+		db.exec(`
+			CREATE TABLE history (
+				task TEXT NOT NULL,
+				subtaskNumber INTEGER NOT NULL,
+				durationSeconds INTEGER NOT NULL,
+				timestamp TEXT NOT NULL,
+				PRIMARY KEY (task, subtaskNumber, timestamp)
+			)
+		`);
+		return;
+	}
+
+	const columns = db.prepare(`PRAGMA table_info(history)`).all() as { name: string }[];
+	const hasTask = columns.some((c) => c.name === 'task');
+	const hasSubtask = columns.some((c) => c.name === 'subtaskNumber');
+	if (hasTask && hasSubtask) return;
+
+	const hasStretch = columns.some((c) => c.name === 'stretch');
+	const hasHold = columns.some((c) => c.name === 'holdNumber');
+
+	if (hasStretch && hasHold) {
+		db.exec(`ALTER TABLE history RENAME TO history_legacy`);
+		db.exec(`
+			CREATE TABLE history (
+				task TEXT NOT NULL,
+				subtaskNumber INTEGER NOT NULL,
+				durationSeconds INTEGER NOT NULL,
+				timestamp TEXT NOT NULL,
+				PRIMARY KEY (task, subtaskNumber, timestamp)
+			)
+		`);
+		db.exec(`
+			INSERT INTO history (task, subtaskNumber, durationSeconds, timestamp)
+			SELECT stretch, holdNumber, durationSeconds, timestamp FROM history_legacy
+		`);
+		db.exec(`DROP TABLE history_legacy`);
+		return;
+	}
+
+	// Fallback: recreate with the desired schema
+	db.exec(`DROP TABLE IF EXISTS history`);
 	db.exec(`
-		CREATE TABLE IF NOT EXISTS history (
-			stretch TEXT NOT NULL,
-			holdNumber INTEGER NOT NULL,
+		CREATE TABLE history (
+			task TEXT NOT NULL,
+			subtaskNumber INTEGER NOT NULL,
 			durationSeconds INTEGER NOT NULL,
 			timestamp TEXT NOT NULL,
-			PRIMARY KEY (stretch, holdNumber, timestamp)
+			PRIMARY KEY (task, subtaskNumber, timestamp)
 		)
 	`);
-	return db;
 }
 
 async function readHistoryJson(): Promise<HistoryEntry[]> {
@@ -108,7 +171,7 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 		const db = initDb(paths.dbFile);
 		const rows = db
 			.prepare(
-				`SELECT stretch as task, holdNumber as subtaskNumber, durationSeconds, timestamp FROM history ORDER BY datetime(timestamp) DESC`
+				`SELECT task, subtaskNumber, durationSeconds, timestamp FROM history ORDER BY datetime(timestamp) DESC`
 			)
 			.all();
 		db.close();
@@ -130,17 +193,12 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 		const insert = db.prepare(
-			`INSERT INTO history (stretch, holdNumber, durationSeconds, timestamp) VALUES (@stretch, @holdNumber, @durationSeconds, @timestamp)`
+			`INSERT INTO history (task, subtaskNumber, durationSeconds, timestamp) VALUES (@task, @subtaskNumber, @durationSeconds, @timestamp)`
 		);
 
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
 			for (const entry of toInsert) {
-				insert.run({
-					stretch: entry.task,
-					holdNumber: entry.subtaskNumber,
-					durationSeconds: entry.durationSeconds,
-					timestamp: entry.timestamp
-				});
+				insert.run(entry);
 			}
 		});
 
@@ -161,18 +219,13 @@ export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 		const insert = db.prepare(
-			`INSERT INTO history (stretch, holdNumber, durationSeconds, timestamp) VALUES (@stretch, @holdNumber, @durationSeconds, @timestamp)`
+			`INSERT INTO history (task, subtaskNumber, durationSeconds, timestamp) VALUES (@task, @subtaskNumber, @durationSeconds, @timestamp)`
 		);
 
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
 			db.prepare(`DELETE FROM history`).run();
 			for (const entry of toInsert) {
-				insert.run({
-					stretch: entry.task,
-					holdNumber: entry.subtaskNumber,
-					durationSeconds: entry.durationSeconds,
-					timestamp: entry.timestamp
-				});
+				insert.run(entry);
 			}
 		});
 
@@ -210,9 +263,7 @@ export async function deleteTodayEntry({
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 
-		const stmt = db.prepare(
-			`DELETE FROM history WHERE stretch = ? AND holdNumber = ? AND timestamp = ?`
-		);
+		const stmt = db.prepare(`DELETE FROM history WHERE task = ? AND subtaskNumber = ? AND timestamp = ?`);
 		const result = stmt.run(task, subtaskNumber, timestamp);
 		db.close();
 

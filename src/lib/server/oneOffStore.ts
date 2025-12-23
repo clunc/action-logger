@@ -23,7 +23,8 @@ function getDataPaths() {
 	const baseDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : DEFAULT_DATA_DIR;
 	return {
 		dir: baseDir,
-		dbFile: path.join(baseDir, 'stretch.db')
+		dbFile: path.join(baseDir, 'actions.db'),
+		legacyDbFile: path.join(baseDir, 'stretch.db')
 	};
 }
 
@@ -31,18 +32,31 @@ async function ensureDbFile() {
 	const primary = getDataPaths();
 	try {
 		await fs.mkdir(primary.dir, { recursive: true });
-		await fs.access(primary.dbFile).catch(async () => {
-			await fs.writeFile(primary.dbFile, '');
-		});
-		return primary;
+		const targetFile = await fs
+			.access(primary.legacyDbFile)
+			.then(() => primary.legacyDbFile)
+			.catch(async () => {
+				await fs.access(primary.dbFile).catch(async () => {
+					await fs.writeFile(primary.dbFile, '');
+				});
+				return primary.dbFile;
+			});
+		return { dir: primary.dir, dbFile: targetFile };
 	} catch (error) {
 		console.error('oneOffStore: primary data dir failed, using fallback', error);
-		const fallback = { dir: FALLBACK_DATA_DIR, dbFile: path.join(FALLBACK_DATA_DIR, 'stretch.db') };
+		const fallbackLegacy = path.join(FALLBACK_DATA_DIR, 'stretch.db');
+		const fallback = { dir: FALLBACK_DATA_DIR, dbFile: path.join(FALLBACK_DATA_DIR, 'actions.db') };
 		await fs.mkdir(fallback.dir, { recursive: true });
-		await fs.access(fallback.dbFile).catch(async () => {
-			await fs.writeFile(fallback.dbFile, '');
-		});
-		return fallback;
+		const targetFile = await fs
+			.access(fallbackLegacy)
+			.then(() => fallbackLegacy)
+			.catch(async () => {
+				await fs.access(fallback.dbFile).catch(async () => {
+					await fs.writeFile(fallback.dbFile, '');
+				});
+				return fallback.dbFile;
+			});
+		return { dir: fallback.dir, dbFile: targetFile };
 	}
 }
 

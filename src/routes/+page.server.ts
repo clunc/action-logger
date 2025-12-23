@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { loadTaskTemplate } from '$lib/server/stretchConfig';
+import { loadTaskTemplate } from '$lib/server/taskConfig';
 import { listOneOffs } from '$lib/server/oneOffStore';
 import { toDateString } from '$lib/date';
 import type { OneOffTask, TaskTemplate } from '$lib/types';
