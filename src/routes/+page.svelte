@@ -4,7 +4,7 @@
 	import HistoryList from '$lib/components/HistoryList.svelte';
 	import { appendHistory, deleteHistoryEntry, fetchHistory } from '$lib/api/history';
 	import { createSession, todayString } from '$lib/stretch';
-	import type { HistoryEntry, SessionStretch } from '$lib/types';
+	import type { HistoryEntry, SessionStretch, StretchTemplate, OneOffTask } from '$lib/types';
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
 
@@ -16,6 +16,7 @@
 	let ready = false;
 	let loadError = '';
 	let templateVersion = data.templateVersion;
+	let oneOffs: OneOffTask[] = data.oneOffs ?? [];
 
 	onMount(async () => {
 		try {
@@ -185,8 +186,9 @@
 	$: streakInfo = calculateStreak(history);
 	$: streakDays = streakInfo.count;
 	$: streakHasToday = streakInfo.hasToday;
-	$: holdLabelsMap = Object.fromEntries(
-		data.stretchTemplate.map((stretch) => [stretch.name, stretch.holdLabels ?? []])
+	$: holdLabelsMap = Object.fromEntries(data.stretchTemplate.map((stretch) => [stretch.name, stretch.holdLabels ?? []]));
+	$: recurrenceLabels = Object.fromEntries(
+		data.stretchTemplate.map((stretch) => [stretch.name, formatRecurrence(stretch.recurrence)])
 	);
 
 	const calculateMonthlyAccordance = (entries: HistoryEntry[]) => {
@@ -208,6 +210,37 @@
 	};
 
 	$: monthlyAccordance = calculateMonthlyAccordance(history);
+
+	function formatRecurrence(recurrence: StretchTemplate['recurrence']): string {
+		if (!recurrence || recurrence.frequency === 'daily') return 'Daily';
+
+		if (recurrence.frequency === 'weekly') {
+			if (recurrence.days && recurrence.days.length) {
+				return `Weekly (${recurrence.days.join(', ')})`;
+			}
+			return 'Weekly';
+		}
+
+		if (recurrence.frequency === 'monthly') {
+			if (recurrence.day_of_month) {
+				return `Monthly (${recurrence.day_of_month}.)`;
+			}
+			return 'Monthly';
+		}
+
+		if (recurrence.frequency === 'yearly') {
+			const hasMonth = Number.isInteger(recurrence.month);
+			const hasDay = Number.isInteger(recurrence.day);
+			if (hasMonth && hasDay) {
+				const day = String(recurrence.day).padStart(2, '0');
+				const month = String(recurrence.month).padStart(2, '0');
+				return `Yearly (${day}.${month}.)`;
+			}
+			return 'Yearly';
+		}
+
+		return 'Recurring';
+	}
 
 	async function startTemplateWatcher() {
 		const watcher = setInterval(async () => {
@@ -277,11 +310,39 @@
 					<div class="summary-sub">This month so far</div>
 				</div>
 			</section>
+			{#if oneOffs.length}
+				<section class="oneoff-section">
+					<h2>Today's one-offs</h2>
+					<div class="oneoff-grid">
+						{#each oneOffs as task}
+							<div class="oneoff-card">
+								<div class="oneoff-header">
+									<div class="pill type">{task.type}</div>
+									{#if task.priority !== undefined}
+										<div class="pill priority">P{task.priority}</div>
+									{/if}
+								</div>
+								<div class="oneoff-title">{task.title}</div>
+								<div class="oneoff-meta">
+									<div class="pill muted">{task.pipeline}</div>
+									<div class="pill muted">{task.pillar}</div>
+									{#if task.time_block}
+										<div class="pill time">{task.time_block}</div>
+									{/if}
+								</div>
+								{#if task.notes}
+									<p class="oneoff-notes">{task.notes}</p>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
 			{#each currentSession as stretch, stretchIdx}
 				<StretchCard
 					{stretch}
 					{stretchIdx}
-					recurrenceLabel="Daily"
+					recurrenceLabel={recurrenceLabels[stretch.name] ?? 'Recurring'}
 					pillarLabel={stretch.pillar}
 					pillarEmoji={stretch.pillarEmoji}
 					onLogHold={handleHoldAction}
@@ -422,6 +483,98 @@
 		margin-top: 4px;
 		color: #6b7280;
 		font-size: 13px;
+	}
+
+	.oneoff-section {
+		margin-bottom: 18px;
+	}
+
+	.oneoff-section h2 {
+		font-size: 15px;
+		font-weight: 800;
+		color: #0f172a;
+		margin: 10px 0 8px;
+	}
+
+	.oneoff-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+		gap: 10px;
+	}
+
+	.oneoff-card {
+		background: white;
+		border: 1px solid #eef1f6;
+		border-radius: 10px;
+		padding: 12px 12px 10px;
+		box-shadow: 0 1px 5px rgba(0, 0, 0, 0.06);
+		display: grid;
+		gap: 6px;
+	}
+
+	.oneoff-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.oneoff-title {
+		font-size: 15px;
+		font-weight: 700;
+		color: #111827;
+	}
+
+	.oneoff-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.oneoff-notes {
+		font-size: 13px;
+		color: #4b5563;
+		line-height: 1.4;
+		margin-top: 2px;
+	}
+
+	.pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		border-radius: 999px;
+		padding: 5px 9px;
+		font-size: 11px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+		background: #f1f5f9;
+		color: #0f172a;
+		border: 1px solid #e2e8f0;
+	}
+
+	.pill.type {
+		background: #eff6ff;
+		border-color: #dbeafe;
+		color: #1d4ed8;
+	}
+
+	.pill.priority {
+		background: #fef3c7;
+		border-color: #fde68a;
+		color: #92400e;
+	}
+
+	.pill.time {
+		background: #ecfeff;
+		border-color: #cffafe;
+		color: #0e7490;
+		text-transform: none;
+		font-weight: 600;
+	}
+
+	.pill.muted {
+		color: #475569;
+		font-weight: 600;
 	}
 
 	@media (max-width: 540px) {
