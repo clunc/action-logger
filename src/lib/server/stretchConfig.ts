@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
-import type { PillarEmojiMap, StretchTemplate } from '$lib/types';
+import type { PillarEmojiMap, StretchTemplate, WeekdayAbbrev, RecurrenceRule } from '$lib/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const TODOS_FILE = path.join(DATA_DIR, 'todos.yaml');
@@ -104,6 +104,42 @@ function normalizeLabels(labels: unknown): string[] | undefined {
 	return cleaned.length ? cleaned : undefined;
 }
 
+function normalizeRecurrence(raw: unknown, name: string): RecurrenceRule {
+	if (!raw || typeof raw !== 'object') {
+		return { frequency: 'daily' };
+	}
+
+	const { frequency, days, day_of_month, month, day } = raw as Record<string, unknown>;
+
+	if (frequency === 'weekly') {
+		const allowed: WeekdayAbbrev[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+		const dayList = Array.isArray(days)
+			? (days
+					.map((d) => String(d).trim())
+					.filter((d) => allowed.includes(d as WeekdayAbbrev)) as WeekdayAbbrev[])
+			: undefined;
+		return { frequency: 'weekly', days: dayList?.length ? dayList : undefined };
+	}
+
+	if (frequency === 'monthly') {
+		const dom = Number(day_of_month);
+		if (Number.isInteger(dom) && dom >= 1 && dom <= 31) {
+			return { frequency: 'monthly', day_of_month: dom };
+		}
+		return { frequency: 'monthly' };
+	}
+
+	if (frequency === 'yearly') {
+		const monthNum = Number(month);
+		const dayNum = Number(day);
+		const validMonth = Number.isInteger(monthNum) && monthNum >= 1 && monthNum <= 12 ? monthNum : undefined;
+		const validDay = Number.isInteger(dayNum) && dayNum >= 1 && dayNum <= 31 ? dayNum : undefined;
+		return { frequency: 'yearly', month: validMonth, day: validDay };
+	}
+
+	return { frequency: 'daily' };
+}
+
 function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: PillarEmojiMap): StretchTemplate[] {
 	if (!Array.isArray(raw)) {
 		throw new Error(`${fileName} must be an array of todos`);
@@ -116,10 +152,8 @@ function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: Pillar
 			throw new Error(`${fileName} entry ${idx + 1} is not an object`);
 		}
 
-		const { name, defaultDurationSeconds, holdLabels, pillar, pillarEmoji, pillar_emoji, priority } = entry as Record<
-			string,
-			unknown
-		>;
+		const { name, defaultDurationSeconds, holdLabels, pillar, pillarEmoji, pillar_emoji, priority, recurrence } =
+			entry as Record<string, unknown>;
 
 		if (typeof name !== 'string' || !name.trim()) {
 			throw new Error(`${fileName} entry ${idx + 1} is missing a valid name`);
@@ -156,7 +190,8 @@ function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: Pillar
 			holdLabels: normalizeLabels(holdLabels),
 			pillar: normalizedPillar,
 			pillarEmoji: normalizedEmoji ?? autoEmoji,
-			priority: normalizedPriority
+			priority: normalizedPriority,
+			recurrence: normalizeRecurrence(recurrence, name.trim())
 		};
 	});
 }

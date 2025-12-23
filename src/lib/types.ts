@@ -20,6 +20,7 @@ export type SessionStretch = {
 	pillar?: string;
 	pillarEmoji?: string;
 	priority?: number;
+	recurrence?: RecurrenceRule;
 };
 
 export type StretchTemplate = {
@@ -29,18 +30,19 @@ export type StretchTemplate = {
 	pillar?: string;
 	pillarEmoji?: string;
 	priority?: number;
+	recurrence?: RecurrenceRule;
 };
 
 export type PillarEmojiMap = Record<string, string>;
 
-export type TaskCategory = 'operational' | 'retrospective' | 'strategic';
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly';
-export type WeekdayAbbrev = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
-
+export type WeekdayAbbrev = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat';
 export type RecurrenceRule =
 	| { frequency: 'daily' }
 	| { frequency: 'weekly'; days?: WeekdayAbbrev[] }
-	| { frequency: 'monthly'; day_of_month?: number };
+	| { frequency: 'monthly'; day_of_month?: number }
+	| { frequency: 'yearly'; month?: number; day?: number };
+
+export type TaskCategory = 'operational' | 'retrospective' | 'strategic';
 
 export type RecurringTaskTemplate = {
 	title: string;
