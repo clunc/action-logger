@@ -29,6 +29,7 @@
 		priority: '',
 		notes: ''
 	};
+	let showOneOffModal = false;
 
 	onMount(async () => {
 		try {
@@ -270,12 +271,23 @@
 				priority: '',
 				notes: ''
 			};
+			showOneOffModal = false;
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : 'Failed to create action';
 			createError = message;
 		} finally {
 			creating = false;
 		}
+	}
+
+	function openOneOffModal() {
+		createError = '';
+		showOneOffModal = true;
+	}
+
+	function closeOneOffModal() {
+		if (creating) return;
+		showOneOffModal = false;
 	}
 
 	function formatRecurrence(recurrence: TaskTemplate['recurrence']): string {
@@ -377,82 +389,13 @@
 					<div class="summary-sub">This month so far</div>
 				</div>
 			</section>
-			<section class="oneoff-form-card">
-				<h2>Add today’s one-off action</h2>
-				<form on:submit|preventDefault={submitOneOff} class="oneoff-form">
-					<div class="form-grid">
-						<label>
-							<span>Title *</span>
-							<input
-								type="text"
-								bind:value={newOneOff.title}
-								placeholder="Action title"
-								required
-							/>
-						</label>
-						<label>
-							<span>Pipeline *</span>
-							<input
-								type="text"
-								bind:value={newOneOff.pipeline}
-								placeholder="e.g., ops, personal, health"
-								required
-							/>
-						</label>
-						<label>
-							<span>Pillar *</span>
-							<input
-								type="text"
-								bind:value={newOneOff.pillar}
-								placeholder="e.g., career, health"
-								required
-							/>
-						</label>
-						<label>
-							<span>Type</span>
-							<select bind:value={newOneOff.type}>
-								<option value="operational">Operational</option>
-								<option value="retrospective">Retrospective</option>
-								<option value="strategic">Strategic</option>
-							</select>
-						</label>
-						<label>
-							<span>Priority</span>
-							<input
-								type="number"
-								min="0"
-								inputmode="numeric"
-								bind:value={newOneOff.priority}
-								placeholder="Optional"
-							/>
-						</label>
-						<label>
-							<span>Time block</span>
-							<input
-								type="text"
-								bind:value={newOneOff.time_block}
-								placeholder="e.g., 14:00–14:30"
-							/>
-						</label>
-					</div>
-					<label class="full-row">
-						<span>Notes</span>
-						<textarea
-							rows="2"
-							bind:value={newOneOff.notes}
-							placeholder="Context or checklist"
-						></textarea>
-					</label>
-					<div class="form-actions">
-						{#if createError}
-							<div class="form-error" role="alert">{createError}</div>
-						{/if}
-						<button class="primary-btn" type="submit" disabled={creating}>
-							{creating ? 'Adding…' : 'Add action'}
-						</button>
-					</div>
-				</form>
-			</section>
+			<div class="oneoff-cta">
+				<div>
+					<h2>Today's one-offs</h2>
+					<p class="oneoff-cta-sub">Add ad-hoc actions for today.</p>
+				</div>
+				<button class="primary-btn" type="button" on:click={openOneOffModal}>Add one-off</button>
+			</div>
 			{#if oneOffs.length}
 				<section class="oneoff-section">
 					<h2>Today's one-offs</h2>
@@ -494,6 +437,79 @@
 			{/each}
 
 			<HistoryList entries={todaysHistory} subtaskLabelsMap={subtaskLabelsMap} />
+		</div>
+	{/if}
+
+	{#if showOneOffModal}
+		<div class="modal-backdrop" on:click={closeOneOffModal}>
+			<div class="modal-card" on:click|stopPropagation>
+				<header class="modal-header">
+					<h3>Add today’s one-off action</h3>
+					<button class="icon-btn" type="button" on:click={closeOneOffModal} aria-label="Close dialog">
+						✕
+					</button>
+				</header>
+				<form on:submit|preventDefault={submitOneOff} class="oneoff-form">
+					<div class="form-grid">
+						<label>
+							<span>Title *</span>
+							<input type="text" bind:value={newOneOff.title} placeholder="Action title" required />
+						</label>
+						<label>
+							<span>Pipeline *</span>
+							<input
+								type="text"
+								bind:value={newOneOff.pipeline}
+								placeholder="e.g., ops, personal, health"
+								required
+							/>
+						</label>
+						<label>
+							<span>Pillar *</span>
+							<input
+								type="text"
+								bind:value={newOneOff.pillar}
+								placeholder="e.g., career, health"
+								required
+							/>
+						</label>
+						<label>
+							<span>Type</span>
+							<select bind:value={newOneOff.type}>
+								<option value="operational">Operational</option>
+								<option value="retrospective">Retrospective</option>
+								<option value="strategic">Strategic</option>
+							</select>
+						</label>
+						<label>
+							<span>Priority</span>
+							<input
+								type="number"
+								min="0"
+								inputmode="numeric"
+								bind:value={newOneOff.priority}
+								placeholder="Optional"
+							/>
+						</label>
+						<label>
+							<span>Time block</span>
+							<input type="text" bind:value={newOneOff.time_block} placeholder="e.g., 14:00–14:30" />
+						</label>
+					</div>
+					<label class="full-row">
+						<span>Notes</span>
+						<textarea rows="2" bind:value={newOneOff.notes} placeholder="Context or checklist"></textarea>
+					</label>
+					<div class="form-actions">
+						{#if createError}
+							<div class="form-error" role="alert">{createError}</div>
+						{/if}
+						<button class="primary-btn" type="submit" disabled={creating}>
+							{creating ? 'Adding…' : 'Add action'}
+						</button>
+					</div>
+				</form>
+			</div>
 		</div>
 	{/if}
 
@@ -824,6 +840,84 @@
 		color: #475569;
 		cursor: not-allowed;
 		box-shadow: none;
+	}
+
+	.oneoff-cta {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		background: white;
+		border: 1px solid #eef1f6;
+		border-radius: 12px;
+		padding: 12px 14px;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+		margin: 8px 0 12px;
+	}
+
+	.oneoff-cta h2 {
+		font-size: 15px;
+		font-weight: 800;
+		color: #0f172a;
+	}
+
+	.oneoff-cta-sub {
+		font-size: 12px;
+		color: #64748b;
+		margin-top: 4px;
+	}
+
+	.modal-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(15, 23, 42, 0.35);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 200;
+		padding: 14px;
+	}
+
+	.modal-card {
+		background: white;
+		border-radius: 12px;
+		border: 1px solid #e2e8f0;
+		padding: 14px 16px;
+		max-width: 640px;
+		width: 100%;
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+	}
+
+	.modal-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 10px;
+	}
+
+	.modal-header h3 {
+		font-size: 16px;
+		font-weight: 800;
+		color: #0f172a;
+	}
+
+	.icon-btn {
+		border: none;
+		background: transparent;
+		font-size: 18px;
+		cursor: pointer;
+		color: #475569;
+	}
+
+	.icon-btn:hover {
+		color: #0f172a;
+	}
+
+	@media (max-width: 540px) {
+		.oneoff-cta {
+			flex-direction: column;
+			gap: 8px;
+			align-items: flex-start;
+		}
 	}
 
 	@media (max-width: 540px) {
