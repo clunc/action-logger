@@ -264,7 +264,7 @@
 
 <div class="page">
 	<nav class="navbar">
-		<h1>📋 Todo Logger</h1>
+		<h1>📋 Action Logger</h1>
 			<div class="badges">
 				<div class={`summary-pill streak ${streakHasToday ? 'on' : 'off'}`} aria-live="polite">
 					<span class="pill-icon">{streakHasToday ? '🔥' : '🕯️'}</span>
