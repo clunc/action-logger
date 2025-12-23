@@ -1,15 +1,15 @@
 <script lang="ts">
-	import type { SessionStretch } from '$lib/types';
+	import type { SessionTask } from '$lib/types';
 
-export let stretch: SessionStretch;
-export let stretchIdx: number;
-export let onLogHold: (stretchIdx: number, holdIdx: number) => void;
-export let onUndoHold: (stretchIdx: number, holdIdx: number) => void;
-export let recurrenceLabel: string = 'Daily';
-export let pillarLabel: string | undefined = undefined;
-export let pillarEmoji: string | undefined = undefined;
+	export let task: SessionTask;
+	export let taskIdx: number;
+	export let onLogSubtask: (taskIdx: number, subtaskIdx: number) => void;
+	export let onUndoSubtask: (taskIdx: number, subtaskIdx: number) => void;
+	export let recurrenceLabel: string = 'Daily';
+	export let pillarLabel: string | undefined = undefined;
+	export let pillarEmoji: string | undefined = undefined;
 
-	$: isPicked = stretch.holds.some((hold) => hold.completed);
+	$: isPicked = task.subtasks.some((subtask) => subtask.completed);
 </script>
 
 <section class={`card ${isPicked ? 'picked' : ''}`}>
@@ -29,19 +29,19 @@ export let pillarEmoji: string | undefined = undefined;
 			{/if}
 		</div>
 		<div class="card-row bottom">
-			<div class="title-text">{stretch.name}</div>
+			<div class="title-text">{task.name}</div>
 			<div class="card-actions">
-				{#each stretch.holds as hold, holdIdx}
+				{#each task.subtasks as subtask, subtaskIdx}
 					<button
-						class={`check-btn ${hold.completed ? 'done' : ''}`}
-						aria-label={hold.completed ? 'Undo todo' : 'Complete todo'}
+						class={`check-btn ${subtask.completed ? 'done' : ''}`}
+						aria-label={subtask.completed ? 'Undo todo' : 'Complete todo'}
 						on:click={() =>
-							hold.completed
-								? onUndoHold(stretchIdx, holdIdx)
-								: onLogHold(stretchIdx, holdIdx)}
+							subtask.completed
+								? onUndoSubtask(taskIdx, subtaskIdx)
+								: onLogSubtask(taskIdx, subtaskIdx)}
 						type="button"
 					>
-						{hold.completed ? '✕' : '✓'}
+						{subtask.completed ? '✕' : '✓'}
 					</button>
 				{/each}
 			</div>

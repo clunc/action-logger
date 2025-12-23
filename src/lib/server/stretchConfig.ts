@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
-import type { PillarEmojiMap, StretchTemplate, WeekdayAbbrev, RecurrenceRule } from '$lib/types';
+import type { PillarEmojiMap, TaskTemplate, WeekdayAbbrev, RecurrenceRule } from '$lib/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const TODOS_FILE = path.join(DATA_DIR, 'todos.yaml');
@@ -9,7 +9,7 @@ const STRETCHES_FILE = path.join(DATA_DIR, 'stretches.yaml'); // kept for backwa
 const PILLARS_FILE = path.join(DATA_DIR, 'pillars.yaml');
 const PILLARS_EXAMPLE_FILE = path.join(DATA_DIR, 'pillars.example.yaml');
 
-let cachedTemplate: { mtimeMs: number; value: StretchTemplate[]; file: string } | null = null;
+let cachedTemplate: { mtimeMs: number; value: TaskTemplate[]; file: string } | null = null;
 
 const DEFAULT_PILLAR_EMOJIS: PillarEmojiMap = {
 	planning: '🧭',
@@ -140,7 +140,7 @@ function normalizeRecurrence(raw: unknown, name: string): RecurrenceRule {
 	return { frequency: 'daily' };
 }
 
-function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: PillarEmojiMap): StretchTemplate[] {
+function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: PillarEmojiMap): TaskTemplate[] {
 	if (!Array.isArray(raw)) {
 		throw new Error(`${fileName} must be an array of todos`);
 	}
@@ -152,7 +152,7 @@ function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: Pillar
 			throw new Error(`${fileName} entry ${idx + 1} is not an object`);
 		}
 
-		const { name, defaultDurationSeconds, holdLabels, pillar, pillarEmoji, pillar_emoji, priority, recurrence } =
+		const { name, defaultDurationSeconds, holdLabels, subtaskLabels, pillar, pillarEmoji, pillar_emoji, priority, recurrence } =
 			entry as Record<string, unknown>;
 
 		if (typeof name !== 'string' || !name.trim()) {
@@ -187,7 +187,7 @@ function validateTemplate(raw: unknown, fileName: string, pillarEmojiMap: Pillar
 		return {
 			name: name.trim(),
 			defaultDurationSeconds: Math.max(0, Math.round(defaultDurationSeconds)),
-			holdLabels: normalizeLabels(holdLabels),
+			subtaskLabels: normalizeLabels(subtaskLabels ?? holdLabels),
 			pillar: normalizedPillar,
 			pillarEmoji: normalizedEmoji ?? autoEmoji,
 			priority: normalizedPriority,
@@ -211,19 +211,19 @@ async function ensureTemplateFile() {
 		.catch(() => false);
 	if (hasStretches) return STRETCHES_FILE;
 
-	const fallback: StretchTemplate[] = [
-		{ name: 'Plan the day', defaultDurationSeconds: 300, pillar: 'Planning', pillarEmoji: '🧭' },
-		{ name: 'Inbox triage', defaultDurationSeconds: 600, pillar: 'Operations', pillarEmoji: '🛠️' },
-		{ name: 'Deep work block', defaultDurationSeconds: 1500, pillar: 'Focus', pillarEmoji: '🎯' },
-		{ name: 'Walk and reset', defaultDurationSeconds: 600, pillar: 'Recovery', pillarEmoji: '🌿' },
-		{ name: 'Shutdown routine', defaultDurationSeconds: 420, pillar: 'Planning', pillarEmoji: '🧭' }
-	];
+	const fallback: TaskTemplate[] = [
+	{ name: 'Plan the day', defaultDurationSeconds: 300, pillar: 'Planning', pillarEmoji: '🧭' },
+	{ name: 'Inbox triage', defaultDurationSeconds: 600, pillar: 'Operations', pillarEmoji: '🛠️' },
+	{ name: 'Deep work block', defaultDurationSeconds: 1500, pillar: 'Focus', pillarEmoji: '🎯' },
+	{ name: 'Walk and reset', defaultDurationSeconds: 600, pillar: 'Recovery', pillarEmoji: '🌿' },
+	{ name: 'Shutdown routine', defaultDurationSeconds: 420, pillar: 'Planning', pillarEmoji: '🧭' }
+];
 	const yaml = YAML.stringify(fallback);
 	await fs.writeFile(TODOS_FILE, yaml, 'utf8');
 	return TODOS_FILE;
 }
 
-export async function loadStretchTemplate(): Promise<{ template: StretchTemplate[]; version: number }> {
+export async function loadStretchTemplate(): Promise<{ template: TaskTemplate[]; version: number }> {
 	const { map: pillarEmojiMap } = await loadPillarEmojiMap();
 	const templatePath = await ensureTemplateFile();
 	const stats = await fs.stat(templatePath);
@@ -239,6 +239,10 @@ export async function loadStretchTemplate(): Promise<{ template: StretchTemplate
 	cachedTemplate = { mtimeMs: stats.mtimeMs, value: template, file: templatePath };
 	return { template, version: stats.mtimeMs };
 }
+
+// Aliases for todo naming
+export const loadTaskTemplate = loadStretchTemplate;
+export const getTaskTemplateVersion = getStretchTemplateVersion;
 
 export async function getStretchTemplateVersion(): Promise<number> {
 	const templatePath = await ensureTemplateFile();

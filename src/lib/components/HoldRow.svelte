@@ -1,17 +1,17 @@
 <script lang="ts">
-	import type { HoldEntry } from '$lib/types';
+	import type { SubtaskEntry } from '$lib/types';
 
-	export let hold: HoldEntry;
-	export let stretchIdx: number;
-	export let holdIdx: number;
-	export let onLogHold: (stretchIdx: number, holdIdx: number) => void;
-	export let onUndoHold: (stretchIdx: number, holdIdx: number) => void;
-	export let holdLabel: string | null = null;
-	export let totalHolds = 1;
+export let subtask: SubtaskEntry;
+	export let taskIdx: number;
+	export let subtaskIdx: number;
+	export let onLogHold: (taskIdx: number, subtaskIdx: number) => void;
+	export let onUndoHold: (taskIdx: number, subtaskIdx: number) => void;
+	export let subtaskLabel: string | null = null;
+	export let totalSubtasks = 1;
 
 	$: actionLabel = '✓';
 	$: actionAriaLabel = 'Mark todo complete';
-	$: displayLabel = holdLabel ?? `Todo${totalHolds > 1 ? ` ${hold.holdNumber}` : ''}`;
+	$: displayLabel = subtaskLabel ?? `Todo${totalSubtasks > 1 ? ` ${subtask.subtaskNumber}` : ''}`;
 </script>
 
 <div class="set-row">
@@ -20,11 +20,11 @@
 	{/if}
 
 	<div class="set-actions">
-		{#if hold.completed}
+		{#if subtask.completed}
 			<button
 				class="log-btn undo-btn"
 				aria-label="Undo todo"
-				on:click={() => onUndoHold(stretchIdx, holdIdx)}
+				on:click={() => onUndoHold(taskIdx, subtaskIdx)}
 				type="button"
 			>
 				✕
@@ -33,7 +33,7 @@
 			<button
 				class="log-btn"
 				aria-label={actionAriaLabel}
-				on:click={() => onLogHold(stretchIdx, holdIdx)}
+				on:click={() => onLogHold(taskIdx, subtaskIdx)}
 				type="button"
 			>
 				{actionLabel}

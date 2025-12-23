@@ -8,8 +8,8 @@ const isValidEntry = (entry: unknown): entry is HistoryEntry => {
 
 	const candidate = entry as Record<string, unknown>;
 	return (
-		typeof candidate.stretch === 'string' &&
-		typeof candidate.holdNumber === 'number' &&
+		typeof candidate.task === 'string' &&
+		typeof candidate.subtaskNumber === 'number' &&
 		typeof candidate.durationSeconds === 'number' &&
 		typeof candidate.timestamp === 'string'
 	);

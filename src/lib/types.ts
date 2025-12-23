@@ -1,32 +1,32 @@
 export type HistoryEntry = {
-	stretch: string;
-	holdNumber: number;
+	task: string;
+	subtaskNumber: number;
 	durationSeconds: number;
 	timestamp: string;
 };
 
-export type HoldEntry = {
-	holdNumber: number;
+export type SubtaskEntry = {
+	subtaskNumber: number;
 	durationSeconds: number;
 	completed: boolean;
 	timestamp: string | null;
 };
 
-export type SessionStretch = {
+export type SessionTask = {
 	name: string;
-	holds: HoldEntry[];
+	subtasks: SubtaskEntry[];
 	defaultDurationSeconds: number;
-	holdLabels?: string[];
+	subtaskLabels?: string[];
 	pillar?: string;
 	pillarEmoji?: string;
 	priority?: number;
 	recurrence?: RecurrenceRule;
 };
 
-export type StretchTemplate = {
+export type TaskTemplate = {
 	name: string;
 	defaultDurationSeconds: number;
-	holdLabels?: string[];
+	subtaskLabels?: string[];
 	pillar?: string;
 	pillarEmoji?: string;
 	priority?: number;
@@ -72,3 +72,8 @@ export type OneOffTask = OneOffTaskTemplate & {
 	id: number;
 	created_at: string;
 };
+
+// Backwards-compatible aliases for legacy imports
+export type StretchTemplate = TaskTemplate;
+export type SessionStretch = SessionTask;
+export type HoldEntry = SubtaskEntry;

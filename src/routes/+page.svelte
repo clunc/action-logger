@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import StretchCard from '$lib/components/StretchCard.svelte';
+	import TaskCard from '$lib/components/TaskCard.svelte';
 	import HistoryList from '$lib/components/HistoryList.svelte';
 	import { appendHistory, deleteHistoryEntry, fetchHistory } from '$lib/api/history';
-	import { createSession, todayString } from '$lib/stretch';
-	import type { HistoryEntry, SessionStretch, StretchTemplate, OneOffTask } from '$lib/types';
+	import { createSession, todayString } from '$lib/tasks';
+	import type { HistoryEntry, SessionTask, TaskTemplate, OneOffTask } from '$lib/types';
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
 
 	export let data: PageData;
 
 	let history: HistoryEntry[] = [];
-	let currentSession: SessionStretch[] = [];
+	let currentSession: SessionTask[] = [];
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
 	let ready = false;
 	let loadError = '';
@@ -25,7 +25,7 @@
 			console.error(error);
 			loadError = 'Could not load history. Changes will not be saved.';
 		} finally {
-			currentSession = createSession(data.stretchTemplate, history);
+			currentSession = createSession(data.taskTemplate, history);
 			ready = true;
 			pollInterval = setInterval(syncHistory, 15000);
 			if (import.meta.env.DEV) {
@@ -42,32 +42,32 @@
 		try {
 			const latest = await fetchHistory();
 			history = latest;
-			currentSession = mergeInProgressSession(createSession(data.stretchTemplate, history));
+			currentSession = mergeInProgressSession(createSession(data.taskTemplate, history));
 		} catch (error) {
 			console.error('Failed to refresh history', error);
 			loadError = 'Could not refresh history from server.';
 		}
 	}
 
-	async function handleHoldAction(stretchIdx: number, holdIdx: number) {
-		await startHoldAndLog(stretchIdx, holdIdx);
+	async function handleSubtaskAction(taskIdx: number, subtaskIdx: number) {
+		await startSubtaskAndLog(taskIdx, subtaskIdx);
 	}
 
-	async function startHoldAndLog(stretchIdx: number, holdIdx: number) {
-		const stretch = currentSession[stretchIdx];
-		const hold = stretch.holds[holdIdx];
-		if (hold.completed) return;
+	async function startSubtaskAndLog(taskIdx: number, subtaskIdx: number) {
+		const task = currentSession[taskIdx];
+		const subtask = task.subtasks[subtaskIdx];
+		if (subtask.completed) return;
 
 		const timestamp = new Date().toISOString();
 		const durationSeconds = 0;
 
-		hold.completed = true;
-		hold.timestamp = timestamp;
-		hold.durationSeconds = durationSeconds;
+		subtask.completed = true;
+		subtask.timestamp = timestamp;
+		subtask.durationSeconds = durationSeconds;
 
 		const entry: HistoryEntry = {
-			stretch: stretch.name,
-			holdNumber: hold.holdNumber,
+			task: task.name,
+			subtaskNumber: subtask.subtaskNumber,
 			durationSeconds,
 			timestamp
 		};
@@ -88,15 +88,15 @@
 		// Timers removed; mark complete instantly.
 	}
 
-	async function undoHold(stretchIdx: number, holdIdx: number) {
-		const stretch = currentSession[stretchIdx];
-		const hold = stretch.holds[holdIdx];
-		if (!hold.completed || !hold.timestamp) return;
+	async function undoSubtask(taskIdx: number, subtaskIdx: number) {
+		const task = currentSession[taskIdx];
+		const subtask = task.subtasks[subtaskIdx];
+		if (!subtask.completed || !subtask.timestamp) return;
 
 		const entry = {
-			stretch: stretch.name,
-			holdNumber: hold.holdNumber,
-			timestamp: hold.timestamp
+			task: task.name,
+			subtaskNumber: subtask.subtaskNumber,
+			timestamp: subtask.timestamp
 		};
 
 		try {
@@ -108,45 +108,40 @@
 			return;
 		}
 
-		const index = history.findIndex(
-			(h) =>
-				h.stretch === entry.stretch &&
-				h.holdNumber === entry.holdNumber &&
-				h.timestamp === entry.timestamp
-		);
+		const index = history.findIndex((h) => h.task === entry.task && h.subtaskNumber === entry.subtaskNumber && h.timestamp === entry.timestamp);
 
 		if (index !== -1) {
 			history.splice(index, 1);
 			history = [...history];
 		}
 
-		hold.completed = false;
-		hold.timestamp = null;
+		subtask.completed = false;
+		subtask.timestamp = null;
 		currentSession = [...currentSession];
 
 		await syncHistory();
 	}
 
-	function mergeInProgressSession(newSession: SessionStretch[]): SessionStretch[] {
-		return newSession.map((stretch) => {
-			const current = currentSession.find((s) => s.name === stretch.name);
-			if (!current) return stretch;
+	function mergeInProgressSession(newSession: SessionTask[]): SessionTask[] {
+		return newSession.map((task) => {
+			const current = currentSession.find((s) => s.name === task.name);
+			if (!current) return task;
 
-			const holds = stretch.holds.map((hold) => {
-				const currentHold = current.holds.find((h) => h.holdNumber === hold.holdNumber);
-				if (!currentHold) return hold;
+			const subtasks = task.subtasks.map((subtask) => {
+				const currentSubtask = current.subtasks.find((h) => h.subtaskNumber === subtask.subtaskNumber);
+				if (!currentSubtask) return subtask;
 
-				if (!hold.completed && !currentHold.completed) {
-					const durationSeconds = Number.isFinite(currentHold.durationSeconds)
-						? currentHold.durationSeconds
-						: hold.durationSeconds;
-					return { ...hold, durationSeconds: durationSeconds || 0 };
+				if (!subtask.completed && !currentSubtask.completed) {
+					const durationSeconds = Number.isFinite(currentSubtask.durationSeconds)
+						? currentSubtask.durationSeconds
+						: subtask.durationSeconds;
+					return { ...subtask, durationSeconds: durationSeconds || 0 };
 				}
 
-				return hold;
+				return subtask;
 			});
 
-			return { ...stretch, holds };
+			return { ...task, subtasks };
 		});
 	}
 
@@ -154,12 +149,12 @@
 		(entry) => new Date(entry.timestamp).toDateString() === todayString()
 	);
 
-	$: totalHolds = currentSession.reduce((sum, stretch) => sum + stretch.holds.length, 0);
-	$: completedHolds = currentSession.reduce(
-		(sum, stretch) => sum + stretch.holds.filter((hold) => hold.completed).length,
+	$: totalSubtasks = currentSession.reduce((sum, task) => sum + task.subtasks.length, 0);
+	$: completedSubtasks = currentSession.reduce(
+		(sum, task) => sum + task.subtasks.filter((subtask) => subtask.completed).length,
 		0
 	);
-	$: completionPercent = totalHolds === 0 ? 0 : Math.round((completedHolds / totalHolds) * 100);
+	$: completionPercent = totalSubtasks === 0 ? 0 : Math.round((completedSubtasks / totalSubtasks) * 100);
 
 	const calculateStreak = (entries: HistoryEntry[]) => {
 		const timestamps = entries
@@ -186,9 +181,11 @@
 	$: streakInfo = calculateStreak(history);
 	$: streakDays = streakInfo.count;
 	$: streakHasToday = streakInfo.hasToday;
-	$: holdLabelsMap = Object.fromEntries(data.stretchTemplate.map((stretch) => [stretch.name, stretch.holdLabels ?? []]));
+	$: subtaskLabelsMap = Object.fromEntries(
+		data.taskTemplate.map((task) => [task.name, task.subtaskLabels ?? task.holdLabels ?? []])
+	);
 	$: recurrenceLabels = Object.fromEntries(
-		data.stretchTemplate.map((stretch) => [stretch.name, formatRecurrence(stretch.recurrence)])
+		data.taskTemplate.map((task) => [task.name, formatRecurrence(task.recurrence)])
 	);
 
 	const calculateMonthlyAccordance = (entries: HistoryEntry[]) => {
@@ -211,7 +208,7 @@
 
 	$: monthlyAccordance = calculateMonthlyAccordance(history);
 
-	function formatRecurrence(recurrence: StretchTemplate['recurrence']): string {
+	function formatRecurrence(recurrence: TaskTemplate['recurrence']): string {
 		if (!recurrence || recurrence.frequency === 'daily') return 'Daily';
 
 		if (recurrence.frequency === 'weekly') {
@@ -245,7 +242,7 @@
 	async function startTemplateWatcher() {
 		const watcher = setInterval(async () => {
 			try {
-				const res = await fetch('/api/stretch-template-version', { cache: 'no-store' });
+				const res = await fetch('/api/task-template-version', { cache: 'no-store' });
 				if (!res.ok) return;
 				const { version } = (await res.json()) as { version?: number };
 				if (typeof version === 'number' && version !== templateVersion) {
@@ -294,7 +291,7 @@
 					<div class="summary-label">Today</div>
 					<div class="summary-value">{completionPercent}%</div>
 					<div class="summary-sub">
-						{completedHolds} / {totalHolds} todos
+						{completedSubtasks} / {totalSubtasks} todos
 					</div>
 				</div>
 				<div class="summary-card">
@@ -338,19 +335,19 @@
 					</div>
 				</section>
 			{/if}
-			{#each currentSession as stretch, stretchIdx}
-				<StretchCard
-					{stretch}
-					{stretchIdx}
-					recurrenceLabel={recurrenceLabels[stretch.name] ?? 'Recurring'}
-					pillarLabel={stretch.pillar}
-					pillarEmoji={stretch.pillarEmoji}
-					onLogHold={handleHoldAction}
-					onUndoHold={undoHold}
+			{#each currentSession as task, taskIdx}
+				<TaskCard
+					task={task}
+					taskIdx={taskIdx}
+					recurrenceLabel={recurrenceLabels[task.name] ?? 'Recurring'}
+					pillarLabel={task.pillar}
+					pillarEmoji={task.pillarEmoji}
+					onLogSubtask={handleSubtaskAction}
+					onUndoSubtask={undoSubtask}
 				/>
 			{/each}
 
-			<HistoryList entries={todaysHistory} {holdLabelsMap} />
+			<HistoryList entries={todaysHistory} subtaskLabelsMap={subtaskLabelsMap} />
 		</div>
 	{/if}
 

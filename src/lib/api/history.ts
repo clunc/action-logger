@@ -26,8 +26,8 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 }
 
 export async function deleteHistoryEntry(entry: {
-	stretch: string;
-	holdNumber: number;
+	task: string;
+	subtaskNumber: number;
 	timestamp: string;
 }): Promise<void> {
 	const res = await fetch(HISTORY_ENDPOINT, {

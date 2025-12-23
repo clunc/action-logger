@@ -72,7 +72,17 @@ async function readHistoryJson(): Promise<HistoryEntry[]> {
 		await fs.mkdir(FALLBACK_DATA_DIR, { recursive: true });
 		const raw = await fs.readFile(JSON_FILE, 'utf8').catch(() => '[]');
 		const parsed = JSON.parse(raw);
-		return Array.isArray(parsed) ? (parsed as HistoryEntry[]) : [];
+		return Array.isArray(parsed)
+			? (parsed as any[]).map((entry) => ({
+					task: (entry as any).task ?? (entry as any).stretch ?? '',
+					subtaskNumber:
+						typeof (entry as any).subtaskNumber === 'number'
+							? (entry as any).subtaskNumber
+							: Number((entry as any).holdNumber) || 0,
+					durationSeconds: Number((entry as any).durationSeconds) || 0,
+					timestamp: String((entry as any).timestamp ?? '')
+				}))
+			: [];
 	} catch (error) {
 		console.error('historyStore: JSON read failed', error);
 		return [];
@@ -98,7 +108,7 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 		const db = initDb(paths.dbFile);
 		const rows = db
 			.prepare(
-				`SELECT stretch, holdNumber, durationSeconds, timestamp FROM history ORDER BY datetime(timestamp) DESC`
+				`SELECT stretch as task, holdNumber as subtaskNumber, durationSeconds, timestamp FROM history ORDER BY datetime(timestamp) DESC`
 			)
 			.all();
 		db.close();
@@ -125,7 +135,12 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
 			for (const entry of toInsert) {
-				insert.run(entry);
+				insert.run({
+					stretch: entry.task,
+					holdNumber: entry.subtaskNumber,
+					durationSeconds: entry.durationSeconds,
+					timestamp: entry.timestamp
+				});
 			}
 		});
 
@@ -152,7 +167,12 @@ export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
 			db.prepare(`DELETE FROM history`).run();
 			for (const entry of toInsert) {
-				insert.run(entry);
+				insert.run({
+					stretch: entry.task,
+					holdNumber: entry.subtaskNumber,
+					durationSeconds: entry.durationSeconds,
+					timestamp: entry.timestamp
+				});
 			}
 		});
 
@@ -164,12 +184,12 @@ export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 }
 
 export async function deleteTodayEntry({
-	stretch,
-	holdNumber,
+	task,
+	subtaskNumber,
 	timestamp
 }: {
-	stretch: string;
-	holdNumber: number;
+	task: string;
+	subtaskNumber: number;
 	timestamp: string;
 }): Promise<number> {
 	if (!Database) {
@@ -177,8 +197,8 @@ export async function deleteTodayEntry({
 		const filtered = all.filter(
 			(entry) =>
 				!(
-					entry.stretch === stretch &&
-					entry.holdNumber === holdNumber &&
+					entry.task === task &&
+					entry.subtaskNumber === subtaskNumber &&
 					entry.timestamp === timestamp
 				)
 		);
@@ -193,7 +213,7 @@ export async function deleteTodayEntry({
 		const stmt = db.prepare(
 			`DELETE FROM history WHERE stretch = ? AND holdNumber = ? AND timestamp = ?`
 		);
-		const result = stmt.run(stretch, holdNumber, timestamp);
+		const result = stmt.run(task, subtaskNumber, timestamp);
 		db.close();
 
 		return result.changes ?? 0;

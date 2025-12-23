@@ -1,19 +1,19 @@
 import type { PageServerLoad } from './$types';
-import { loadStretchTemplate } from '$lib/server/stretchConfig';
+import { loadTaskTemplate } from '$lib/server/stretchConfig';
 import { listOneOffs } from '$lib/server/oneOffStore';
 import { toDateString } from '$lib/date';
-import type { OneOffTask, StretchTemplate } from '$lib/types';
+import type { OneOffTask, TaskTemplate } from '$lib/types';
 import { isRecurrenceActiveToday } from '$lib/recurrence';
 
 export const load: PageServerLoad = async () => {
 	try {
-		const { template, version } = await loadStretchTemplate();
+		const { template, version } = await loadTaskTemplate();
 		const today = toDateString(new Date());
 		const oneOffs = await listOneOffs(today);
 		const active = template.filter((item) => isRecurrenceActiveToday(item.recurrence));
 		const inactive = template.filter((item) => !isRecurrenceActiveToday(item.recurrence));
 
-		const sortByPriority = (items: StretchTemplate[]) =>
+		const sortByPriority = (items: TaskTemplate[]) =>
 			[...items].sort((a, b) => {
 				const aPri = Number.isFinite(a.priority) ? (a.priority as number) : -Infinity;
 				const bPri = Number.isFinite(b.priority) ? (b.priority as number) : -Infinity;
@@ -24,15 +24,15 @@ export const load: PageServerLoad = async () => {
 		const combined = [...sortByPriority(active), ...sortByPriority(inactive)];
 
 		return {
-			stretchTemplate: combined,
+			taskTemplate: combined,
 			templateVersion: version,
 			oneOffs: oneOffs as OneOffTask[]
 		};
 	} catch (error) {
-		console.error('Failed to load stretch template, using fallback', error);
-		const fallback: StretchTemplate[] = [{ name: 'Forward Fold', defaultDurationSeconds: 60 }];
+		console.error('Failed to load task template, using fallback', error);
+		const fallback: TaskTemplate[] = [{ name: 'Forward Fold', defaultDurationSeconds: 60 }];
 		return {
-			stretchTemplate: fallback,
+			taskTemplate: fallback,
 			templateVersion: Date.now(),
 			oneOffs: [] as OneOffTask[]
 		};

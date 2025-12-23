@@ -1,14 +1,14 @@
 <script lang="ts">
 	import type { HistoryEntry } from '$lib/types';
-	import { formatTimestamp } from '$lib/stretch';
+	import { formatTimestamp } from '$lib/tasks';
 
 	export let entries: HistoryEntry[] = [];
-	export let holdLabelsMap: Record<string, string[] | undefined> = {};
+	export let subtaskLabelsMap: Record<string, string[] | undefined> = {};
 
 	const formatEntryLabel = (entry: HistoryEntry) => {
-		const labels = holdLabelsMap[entry.stretch];
-		const label = labels?.[entry.holdNumber - 1];
-		return label ? `${entry.stretch} - ${label}` : entry.stretch;
+		const labels = subtaskLabelsMap[entry.task];
+		const label = labels?.[entry.subtaskNumber - 1];
+		return label ? `${entry.task} - ${label}` : entry.task;
 	};
 </script>
 
