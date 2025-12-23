@@ -14,7 +14,7 @@
 
 {#if entries.length > 0}
 	<section class="history-section">
-		<div class="history-title">Today's Todos</div>
+		<div class="history-title">Today's Actions</div>
 		{#each entries as entry}
 			<article class="history-card">
 				<div class="history-header">

@@ -279,7 +279,7 @@
 
 	{#if !ready}
 		<div class="content">
-			<p class="loading">Loading your todos...</p>
+			<p class="loading">Loading your actions...</p>
 		</div>
 	{:else}
 		<div class="content">
@@ -291,7 +291,7 @@
 					<div class="summary-label">Today</div>
 					<div class="summary-value">{completionPercent}%</div>
 					<div class="summary-sub">
-						{completedSubtasks} / {totalSubtasks} todos
+						{completedSubtasks} / {totalSubtasks} actions
 					</div>
 				</div>
 				<div class="summary-card">

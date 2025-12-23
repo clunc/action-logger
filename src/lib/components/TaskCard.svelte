@@ -34,7 +34,7 @@
 				{#each task.subtasks as subtask, subtaskIdx}
 					<button
 						class={`check-btn ${subtask.completed ? 'done' : ''}`}
-						aria-label={subtask.completed ? 'Undo todo' : 'Complete todo'}
+						aria-label={subtask.completed ? 'Undo action' : 'Complete action'}
 						on:click={() =>
 							subtask.completed
 								? onUndoSubtask(taskIdx, subtaskIdx)

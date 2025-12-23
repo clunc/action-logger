@@ -10,8 +10,8 @@ export let subtask: SubtaskEntry;
 	export let totalSubtasks = 1;
 
 	$: actionLabel = '✓';
-	$: actionAriaLabel = 'Mark todo complete';
-	$: displayLabel = subtaskLabel ?? `Todo${totalSubtasks > 1 ? ` ${subtask.subtaskNumber}` : ''}`;
+	$: actionAriaLabel = 'Mark action complete';
+	$: displayLabel = subtaskLabel ?? `Action${totalSubtasks > 1 ? ` ${subtask.subtaskNumber}` : ''}`;
 </script>
 
 <div class="set-row">
@@ -23,7 +23,7 @@ export let subtask: SubtaskEntry;
 		{#if subtask.completed}
 			<button
 				class="log-btn undo-btn"
-				aria-label="Undo todo"
+				aria-label="Undo action"
 				on:click={() => onUndoHold(taskIdx, subtaskIdx)}
 				type="button"
 			>
