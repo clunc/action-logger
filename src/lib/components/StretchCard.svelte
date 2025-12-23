@@ -5,9 +5,11 @@ export let stretch: SessionStretch;
 export let stretchIdx: number;
 export let onLogHold: (stretchIdx: number, holdIdx: number) => void;
 export let onUndoHold: (stretchIdx: number, holdIdx: number) => void;
+
+	$: isPicked = stretch.holds.some((hold) => hold.completed);
 </script>
 
-<section class="card">
+<section class={`card ${isPicked ? 'picked' : ''}`}>
 	<header class="card-header">
 		<div class="card-title">{stretch.name}</div>
 		<div class="card-actions">
@@ -38,6 +40,12 @@ export let onUndoHold: (stretchIdx: number, holdIdx: number) => void;
 		border: 1px solid #eef1f6;
 	}
 
+	.card.picked {
+		background: #ecfdf3;
+		border-color: #bbf7d0;
+		box-shadow: 0 4px 14px rgba(16, 185, 129, 0.18);
+	}
+
 	.card-header {
 		padding: 14px 16px;
 		border-bottom: 1px solid #f3f4f6;
@@ -62,8 +70,8 @@ export let onUndoHold: (stretchIdx: number, holdIdx: number) => void;
 		width: 42px;
 		height: 42px;
 		border-radius: 50%;
-		border: 1px solid #d9e0eb;
-		background: #f8fafc;
+		border: 1px solid #c7eed8;
+		background: #e9f9ef;
 		color: #0f172a;
 		font-size: 18px;
 		font-weight: 800;
@@ -71,26 +79,37 @@ export let onUndoHold: (stretchIdx: number, holdIdx: number) => void;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		transition: background 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease;
+		transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 	}
 
 	.check-btn:hover {
-		background: #e2e8f0;
+		background: #d9f3e6;
+		border-color: #b3e6cc;
 	}
 
 	.check-btn:active {
 		transform: translateY(1px);
 		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+		background: #b7e7d0;
+		border-color: #86d9b1;
 	}
 
 	.check-btn.done {
-		background: #22c55e;
-		border-color: #16a34a;
-		color: white;
+		background: #fecdd3;
+		border-color: #fca5a5;
+		color: #b91c1c;
 	}
 
 	.check-btn.done:hover {
-		background: #16a34a;
+		background: #fca5a5;
+		border-color: #ef4444;
+		color: #7f1d1d;
+	}
+
+	.check-btn.done:active {
+		background: #dc2626;
+		border-color: #b91c1c;
+		color: white;
 	}
 </style>
