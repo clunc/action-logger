@@ -3,6 +3,7 @@
 	import TaskCard from '$lib/components/TaskCard.svelte';
 	import HistoryList from '$lib/components/HistoryList.svelte';
 	import { appendHistory, deleteHistoryEntry, fetchHistory } from '$lib/api/history';
+	import { createOneOffClient } from '$lib/api/oneOffs';
 	import { createSession, todayString } from '$lib/tasks';
 	import type { HistoryEntry, SessionTask, TaskTemplate, OneOffTask } from '$lib/types';
 	import type { PageData } from './$types';
@@ -17,6 +18,17 @@
 	let loadError = '';
 	let templateVersion = data.templateVersion;
 	let oneOffs: OneOffTask[] = data.oneOffs ?? [];
+	let createError = '';
+	let creating = false;
+	let newOneOff = {
+		title: '',
+		type: 'operational' as OneOffTask['type'],
+		pipeline: '',
+		pillar: '',
+		time_block: '',
+		priority: '',
+		notes: ''
+	};
 
 	onMount(async () => {
 		try {
@@ -218,6 +230,54 @@
 
 	$: monthlyAccordance = calculateMonthlyAccordance(history);
 
+	function validateOneOff() {
+		const trimmedTitle = newOneOff.title.trim();
+		const trimmedPipeline = newOneOff.pipeline.trim();
+		const trimmedPillar = newOneOff.pillar.trim();
+		if (!trimmedTitle) return 'Title is required';
+		if (!trimmedPipeline) return 'Pipeline is required';
+		if (!trimmedPillar) return 'Pillar is required';
+		return '';
+	}
+
+	async function submitOneOff(event: Event) {
+		event.preventDefault();
+		createError = '';
+		const errorMsg = validateOneOff();
+		if (errorMsg) {
+			createError = errorMsg;
+			return;
+		}
+		creating = true;
+		try {
+			const priorityNum = newOneOff.priority === '' ? undefined : Number(newOneOff.priority);
+			const created = await createOneOffClient({
+				title: newOneOff.title.trim(),
+				type: newOneOff.type,
+				pipeline: newOneOff.pipeline.trim(),
+				pillar: newOneOff.pillar.trim(),
+				time_block: newOneOff.time_block.trim() || undefined,
+				priority: Number.isFinite(priorityNum) ? Math.round(priorityNum as number) : undefined,
+				notes: newOneOff.notes.trim() || undefined
+			});
+			oneOffs = [created, ...oneOffs];
+			newOneOff = {
+				title: '',
+				type: 'operational',
+				pipeline: '',
+				pillar: '',
+				time_block: '',
+				priority: '',
+				notes: ''
+			};
+		} catch (error: unknown) {
+			const message = error instanceof Error ? error.message : 'Failed to create action';
+			createError = message;
+		} finally {
+			creating = false;
+		}
+	}
+
 	function formatRecurrence(recurrence: TaskTemplate['recurrence']): string {
 		if (!recurrence || recurrence.frequency === 'daily') return 'Daily';
 
@@ -316,6 +376,82 @@
 					<div class="summary-value">{monthlyAccordance}%</div>
 					<div class="summary-sub">This month so far</div>
 				</div>
+			</section>
+			<section class="oneoff-form-card">
+				<h2>Add today’s one-off action</h2>
+				<form on:submit|preventDefault={submitOneOff} class="oneoff-form">
+					<div class="form-grid">
+						<label>
+							<span>Title *</span>
+							<input
+								type="text"
+								bind:value={newOneOff.title}
+								placeholder="Action title"
+								required
+							/>
+						</label>
+						<label>
+							<span>Pipeline *</span>
+							<input
+								type="text"
+								bind:value={newOneOff.pipeline}
+								placeholder="e.g., ops, personal, health"
+								required
+							/>
+						</label>
+						<label>
+							<span>Pillar *</span>
+							<input
+								type="text"
+								bind:value={newOneOff.pillar}
+								placeholder="e.g., career, health"
+								required
+							/>
+						</label>
+						<label>
+							<span>Type</span>
+							<select bind:value={newOneOff.type}>
+								<option value="operational">Operational</option>
+								<option value="retrospective">Retrospective</option>
+								<option value="strategic">Strategic</option>
+							</select>
+						</label>
+						<label>
+							<span>Priority</span>
+							<input
+								type="number"
+								min="0"
+								inputmode="numeric"
+								bind:value={newOneOff.priority}
+								placeholder="Optional"
+							/>
+						</label>
+						<label>
+							<span>Time block</span>
+							<input
+								type="text"
+								bind:value={newOneOff.time_block}
+								placeholder="e.g., 14:00–14:30"
+							/>
+						</label>
+					</div>
+					<label class="full-row">
+						<span>Notes</span>
+						<textarea
+							rows="2"
+							bind:value={newOneOff.notes}
+							placeholder="Context or checklist"
+						></textarea>
+					</label>
+					<div class="form-actions">
+						{#if createError}
+							<div class="form-error" role="alert">{createError}</div>
+						{/if}
+						<button class="primary-btn" type="submit" disabled={creating}>
+							{creating ? 'Adding…' : 'Add action'}
+						</button>
+					</div>
+				</form>
 			</section>
 			{#if oneOffs.length}
 				<section class="oneoff-section">
@@ -582,6 +718,112 @@
 	.pill.muted {
 		color: #475569;
 		font-weight: 600;
+	}
+
+	.oneoff-form-card {
+		margin: 8px 0 16px;
+		background: white;
+		border: 1px solid #eef1f6;
+		border-radius: 12px;
+		padding: 14px 16px;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+	}
+
+	.oneoff-form-card h2 {
+		font-size: 15px;
+		font-weight: 800;
+		color: #0f172a;
+		margin-bottom: 10px;
+	}
+
+	.oneoff-form {
+		display: grid;
+		gap: 10px;
+	}
+
+	.form-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: 10px;
+	}
+
+	label {
+		display: grid;
+		gap: 6px;
+		font-size: 13px;
+		color: #334155;
+		font-weight: 700;
+	}
+
+	input,
+	select,
+	textarea {
+		border: 1px solid #e2e8f0;
+		border-radius: 8px;
+		padding: 10px 12px;
+		font-size: 14px;
+		font-family: inherit;
+		background: #f8fafc;
+		color: #0f172a;
+	}
+
+	input:focus,
+	select:focus,
+	textarea:focus {
+		outline: 2px solid #93c5fd;
+		background: white;
+	}
+
+	textarea {
+		resize: vertical;
+	}
+
+	.full-row {
+		width: 100%;
+	}
+
+	.form-actions {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		justify-content: flex-end;
+	}
+
+	.form-error {
+		color: #b91c1c;
+		background: #fef2f2;
+		border: 1px solid #fecdd3;
+		border-radius: 8px;
+		padding: 8px 10px;
+		font-size: 13px;
+	}
+
+	.primary-btn {
+		border: none;
+		background: #2563eb;
+		color: white;
+		padding: 10px 14px;
+		border-radius: 10px;
+		font-weight: 700;
+		cursor: pointer;
+		box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+		transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease;
+	}
+
+	.primary-btn:hover {
+		background: #1d4ed8;
+	}
+
+	.primary-btn:active {
+		transform: translateY(1px);
+		box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+	}
+
+	.primary-btn:disabled {
+		background: #cbd5e1;
+		color: #475569;
+		cursor: not-allowed;
+		box-shadow: none;
 	}
 
 	@media (max-width: 540px) {
