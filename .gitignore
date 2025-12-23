@@ -36,6 +36,7 @@ bower_components
 
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
+build/
 
 # Dependency directories
 node_modules/
@@ -97,6 +98,10 @@ dist
 
 # Sveltekit cache directory
 .svelte-kit/
+.data-fallback/
+
+# Local runtime data
+data/
 
 # vitepress build output
 **/.vitepress/dist

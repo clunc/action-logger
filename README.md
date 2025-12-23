@@ -1,2 +1,2 @@
-# action-log
-action-log   A personal system dashboard that plans and tracks daily execution across life pipelines—aligned with long-term goals, pillars, and recurring systems. Designed for integration with Obsidian and custom web apps.
+# action-logger
+Action Logger is a simple, fast todo logger so you can progress through your daily tasks.

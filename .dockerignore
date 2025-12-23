@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules
+build
+.svelte-kit
+.vscode
+.devcontainer
+data
+Dockerfile
+docker-compose.yml
+*.log
+tmp
+npm-debug.log*
