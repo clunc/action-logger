@@ -30,6 +30,31 @@
 		notes: ''
 	};
 	let showOneOffModal = false;
+	let pipelineSelect = '';
+	let pillarSelect = '';
+	let pipelineCustom = '';
+	let pillarCustom = '';
+	let newOneOffKind: 'one-off' | 'recurring' = 'one-off';
+	let recurrenceFrequency: 'daily' | 'weekly' | 'monthly' | 'yearly' = 'daily';
+	let recurrenceWeeklyDays: string[] = [];
+	let recurrenceMonthlyDay = '';
+	let recurrenceYearMonth = '';
+	let recurrenceYearDay = '';
+	let oneOffDueDate = '';
+
+	$: {
+		if (pipelineSelect && pipelineSelect !== '__custom') {
+			newOneOff.pipeline = pipelineSelect;
+		} else if (pipelineSelect !== '__custom') {
+			newOneOff.pipeline = '';
+		}
+
+		if (pillarSelect && pillarSelect !== '__custom') {
+			newOneOff.pillar = pillarSelect;
+		} else if (pillarSelect !== '__custom') {
+			newOneOff.pillar = '';
+		}
+	}
 
 	onMount(async () => {
 		try {
@@ -210,6 +235,22 @@
 	$: recurrenceLabels = Object.fromEntries(
 		data.taskTemplate.map((task) => [task.name, formatRecurrence(task.recurrence)])
 	);
+	$: pipelineOptions = Array.from(
+		new Set(
+			[
+				...data.taskTemplate.map((t) => t.pipeline).filter(Boolean),
+				...oneOffs.map((o) => o.pipeline).filter(Boolean)
+			] as string[]
+		)
+	);
+	$: pillarOptions = Array.from(
+		new Set(
+			[
+				...data.taskTemplate.map((t) => t.pillar).filter(Boolean),
+				...oneOffs.map((o) => o.pillar).filter(Boolean)
+			] as string[]
+		)
+	);
 
 	const calculateMonthlyAccordance = (entries: HistoryEntry[]) => {
 		const today = new Date();
@@ -233,11 +274,27 @@
 
 	function validateOneOff() {
 		const trimmedTitle = newOneOff.title.trim();
-		const trimmedPipeline = newOneOff.pipeline.trim();
-		const trimmedPillar = newOneOff.pillar.trim();
+		const pipelineValue = pipelineSelect === '__custom' ? pipelineCustom.trim() : newOneOff.pipeline.trim();
+		const pillarValue = pillarSelect === '__custom' ? pillarCustom.trim() : newOneOff.pillar.trim();
 		if (!trimmedTitle) return 'Title is required';
-		if (!trimmedPipeline) return 'Pipeline is required';
-		if (!trimmedPillar) return 'Pillar is required';
+		if (!pipelineValue) return 'Pipeline is required';
+		if (!pillarValue) return 'Pillar is required';
+		if (newOneOffKind === 'one-off') {
+			if (!oneOffDueDate) return 'Due date is required for one-off';
+		}
+		if (newOneOffKind === 'recurring') {
+			if (recurrenceFrequency === 'weekly' && !recurrenceWeeklyDays.length) return 'Select at least one weekday';
+			if (recurrenceFrequency === 'monthly') {
+				const day = Number(recurrenceMonthlyDay);
+				if (!Number.isInteger(day) || day < 1 || day > 31) return 'Monthly day must be 1-31';
+			}
+			if (recurrenceFrequency === 'yearly') {
+				const month = Number(recurrenceYearMonth);
+				const day = Number(recurrenceYearDay);
+				if (!Number.isInteger(month) || month < 1 || month > 12) return 'Yearly month must be 1-12';
+				if (!Number.isInteger(day) || day < 1 || day > 31) return 'Yearly day must be 1-31';
+			}
+		}
 		return '';
 	}
 
@@ -252,15 +309,36 @@
 		creating = true;
 		try {
 			const priorityNum = newOneOff.priority === '' ? undefined : Number(newOneOff.priority);
-			const created = await createOneOffClient({
+			const pipelineValue = pipelineSelect === '__custom' ? pipelineCustom.trim() : newOneOff.pipeline.trim();
+			const pillarValue = pillarSelect === '__custom' ? pillarCustom.trim() : newOneOff.pillar.trim();
+			const payload: any = {
 				title: newOneOff.title.trim(),
 				type: newOneOff.type,
-				pipeline: newOneOff.pipeline.trim(),
-				pillar: newOneOff.pillar.trim(),
+				pipeline: pipelineValue,
+				pillar: pillarValue,
 				time_block: newOneOff.time_block.trim() || undefined,
 				priority: Number.isFinite(priorityNum) ? Math.round(priorityNum as number) : undefined,
 				notes: newOneOff.notes.trim() || undefined
-			});
+			};
+
+			if (newOneOffKind === 'recurring') {
+				if (recurrenceFrequency === 'weekly') {
+					payload.recurrence = { frequency: 'weekly', days: recurrenceWeeklyDays };
+				} else if (recurrenceFrequency === 'monthly') {
+					const day = Number(recurrenceMonthlyDay);
+					payload.recurrence = { frequency: 'monthly', day_of_month: day };
+				} else if (recurrenceFrequency === 'yearly') {
+					const month = Number(recurrenceYearMonth);
+					const day = Number(recurrenceYearDay);
+					payload.recurrence = { frequency: 'yearly', month, day };
+				} else {
+					payload.recurrence = { frequency: 'daily' };
+				}
+			} else {
+				payload.scheduled_for = oneOffDueDate;
+			}
+
+			const created = await createOneOffClient(payload);
 			oneOffs = [created, ...oneOffs];
 			newOneOff = {
 				title: '',
@@ -271,6 +349,16 @@
 				priority: '',
 				notes: ''
 			};
+			pipelineSelect = '';
+			pillarSelect = '';
+			pipelineCustom = '';
+			pillarCustom = '';
+			recurrenceFrequency = 'daily';
+			recurrenceWeeklyDays = [];
+			recurrenceMonthlyDay = '';
+			recurrenceYearMonth = '';
+			recurrenceYearDay = '';
+			oneOffDueDate = '';
 			showOneOffModal = false;
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : 'Failed to create action';
@@ -389,13 +477,10 @@
 					<div class="summary-sub">This month so far</div>
 				</div>
 			</section>
-			<div class="oneoff-cta">
-				<div>
-					<h2>Today's one-offs</h2>
-					<p class="oneoff-cta-sub">Add ad-hoc actions for today.</p>
-				</div>
-				<button class="primary-btn" type="button" on:click={openOneOffModal}>Add one-off</button>
-			</div>
+			<button class="oneoff-add-button" type="button" on:click={openOneOffModal}>
+				<span class="add-icon">＋</span>
+				<span class="add-title">Add task</span>
+			</button>
 			{#if oneOffs.length}
 				<section class="oneoff-section">
 					<h2>Today's one-offs</h2>
@@ -457,21 +542,23 @@
 						</label>
 						<label>
 							<span>Pipeline *</span>
-							<input
-								type="text"
-								bind:value={newOneOff.pipeline}
-								placeholder="e.g., ops, personal, health"
-								required
-							/>
+							<select bind:value={pipelineSelect}>
+								<option value="">Select pipeline</option>
+								{#each pipelineOptions as option}
+									<option value={option}>{option}</option>
+								{/each}
+								<option value="__custom">Custom…</option>
+							</select>
 						</label>
 						<label>
 							<span>Pillar *</span>
-							<input
-								type="text"
-								bind:value={newOneOff.pillar}
-								placeholder="e.g., career, health"
-								required
-							/>
+							<select bind:value={pillarSelect}>
+								<option value="">Select pillar</option>
+								{#each pillarOptions as option}
+									<option value={option}>{option}</option>
+								{/each}
+								<option value="__custom">Custom…</option>
+							</select>
 						</label>
 						<label>
 							<span>Type</span>
@@ -496,6 +583,106 @@
 							<input type="text" bind:value={newOneOff.time_block} placeholder="e.g., 14:00–14:30" />
 						</label>
 					</div>
+					<label>
+						<span>Kind</span>
+						<select bind:value={newOneOffKind}>
+							<option value="one-off">One-off (today)</option>
+							<option value="recurring">Recurring</option>
+						</select>
+					</label>
+					{#if newOneOffKind === 'one-off'}
+						<label>
+							<span>Due date *</span>
+							<input type="date" bind:value={oneOffDueDate} />
+						</label>
+					{:else}
+						<label>
+							<span>Recurrence</span>
+							<select bind:value={recurrenceFrequency}>
+								<option value="daily">Daily</option>
+								<option value="weekly">Weekly</option>
+								<option value="monthly">Monthly</option>
+								<option value="yearly">Yearly</option>
+							</select>
+						</label>
+						{#if recurrenceFrequency === 'weekly'}
+							<div class="chip-row">
+								{#each ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as day}
+									<button
+										type="button"
+										class={`chip ${recurrenceWeeklyDays.includes(day) ? 'on' : ''}`}
+										on:click={() => {
+											recurrenceWeeklyDays = recurrenceWeeklyDays.includes(day)
+												? recurrenceWeeklyDays.filter((d) => d !== day)
+												: [...recurrenceWeeklyDays, day];
+										}}
+									>
+										{day}
+									</button>
+								{/each}
+							</div>
+						{:else if recurrenceFrequency === 'monthly'}
+							<label>
+								<span>Day of month</span>
+								<input
+									type="number"
+									min="1"
+									max="31"
+									bind:value={recurrenceMonthlyDay}
+									placeholder="1-31"
+								/>
+							</label>
+						{:else if recurrenceFrequency === 'yearly'}
+							<div class="form-grid">
+								<label>
+									<span>Month</span>
+									<input
+										type="number"
+										min="1"
+										max="12"
+										bind:value={recurrenceYearMonth}
+										placeholder="1-12"
+									/>
+								</label>
+								<label>
+									<span>Day</span>
+									<input
+										type="number"
+										min="1"
+										max="31"
+										bind:value={recurrenceYearDay}
+										placeholder="1-31"
+									/>
+								</label>
+							</div>
+						{/if}
+					{/if}
+					{#if pipelineSelect === '__custom' || pillarSelect === '__custom'}
+						<div class="form-grid">
+							{#if pipelineSelect === '__custom'}
+								<label>
+									<span>Custom pipeline *</span>
+									<input
+										type="text"
+										bind:value={pipelineCustom}
+										placeholder="e.g., ops, personal, health"
+										required
+									/>
+								</label>
+							{/if}
+							{#if pillarSelect === '__custom'}
+								<label>
+									<span>Custom pillar *</span>
+									<input
+										type="text"
+										bind:value={pillarCustom}
+										placeholder="e.g., career, health"
+										required
+									/>
+								</label>
+							{/if}
+						</div>
+					{/if}
 					<label class="full-row">
 						<span>Notes</span>
 						<textarea rows="2" bind:value={newOneOff.notes} placeholder="Context or checklist"></textarea>
@@ -842,28 +1029,47 @@
 		box-shadow: none;
 	}
 
-	.oneoff-cta {
+	.oneoff-add-button {
+		width: 100%;
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
-		background: white;
-		border: 1px solid #eef1f6;
-		border-radius: 12px;
-		padding: 12px 14px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+		justify-content: center;
+		gap: 10px;
+		background: linear-gradient(90deg, #2563eb, #1d4ed8);
+		border: 1px solid #1d4ed8;
+		color: white;
+		border-radius: 999px;
+		padding: 12px 16px;
+		box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+		cursor: pointer;
+		transition: transform 0.08s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 		margin: 8px 0 12px;
 	}
 
-	.oneoff-cta h2 {
-		font-size: 15px;
-		font-weight: 800;
-		color: #0f172a;
+	.oneoff-add-button:hover {
+		transform: translateY(-1px);
+		box-shadow: 0 8px 18px rgba(37, 99, 235, 0.4);
 	}
 
-	.oneoff-cta-sub {
-		font-size: 12px;
-		color: #64748b;
-		margin-top: 4px;
+	.oneoff-add-button:active {
+		transform: translateY(1px);
+		box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+	}
+
+	.oneoff-add-text {
+		display: grid;
+		gap: 4px;
+		text-align: left;
+	}
+
+	.add-title {
+		font-size: 15px;
+		font-weight: 800;
+	}
+
+	.add-icon {
+		font-size: 18px;
+		font-weight: 800;
 	}
 
 	.modal-backdrop {
@@ -912,11 +1118,34 @@
 		color: #0f172a;
 	}
 
+	.chip-row {
+		display: flex;
+		gap: 6px;
+		flex-wrap: wrap;
+	}
+
+	.chip {
+		border: 1px solid #e2e8f0;
+		background: #f8fafc;
+		color: #0f172a;
+		border-radius: 999px;
+		padding: 6px 10px;
+		font-size: 12px;
+		font-weight: 700;
+		cursor: pointer;
+		transition: all 0.12s ease;
+	}
+
+	.chip.on {
+		background: #2563eb;
+		color: white;
+		border-color: #1d4ed8;
+	}
+
 	@media (max-width: 540px) {
-		.oneoff-cta {
-			flex-direction: column;
-			gap: 8px;
-			align-items: flex-start;
+		.oneoff-add-button {
+			flex-direction: row;
+			align-items: center;
 		}
 	}
 
