@@ -2,14 +2,15 @@
 	import type { HistoryEntry } from '$lib/types';
 	import { formatTimestamp } from '$lib/tasks';
 
-	export let entries: HistoryEntry[] = [];
-	export let subtaskLabelsMap: Record<string, string[] | undefined> = {};
+export let entries: HistoryEntry[] = [];
+export let subtaskLabelsMap: Record<string, string[] | undefined> = {};
 
-	const formatEntryLabel = (entry: HistoryEntry) => {
-		const labels = subtaskLabelsMap[entry.task];
-		const label = labels?.[entry.subtaskNumber - 1];
-		return label ? `${entry.task} - ${label}` : entry.task;
-	};
+const formatEntryLabel = (entry: HistoryEntry) => {
+	const key = entry.taskId ?? entry.task;
+	const labels = subtaskLabelsMap[key];
+	const label = labels?.[entry.subtaskNumber - 1];
+	return label ? `${entry.task} - ${label}` : entry.task;
+};
 </script>
 
 {#if entries.length > 0}

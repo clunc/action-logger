@@ -1,4 +1,5 @@
 export type HistoryEntry = {
+	taskId?: string | null;
 	task: string;
 	subtaskNumber: number;
 	durationSeconds: number;
@@ -14,23 +15,39 @@ export type SubtaskEntry = {
 
 export type SessionTask = {
 	name: string;
+	id?: string;
+	pipeline?: string;
 	subtasks: SubtaskEntry[];
 	defaultDurationSeconds: number;
 	subtaskLabels?: string[];
 	pillar?: string;
 	pillarEmoji?: string;
 	priority?: number;
+	time_block?: string;
+	context?: string;
+	notes?: string;
+	type?: TaskCategory;
 	recurrence?: RecurrenceRule;
+	isOneOff?: boolean;
+	oneOffId?: number;
 };
 
 export type TaskTemplate = {
 	name: string;
+	id?: string;
+	pipeline?: string;
 	defaultDurationSeconds: number;
 	subtaskLabels?: string[];
 	pillar?: string;
 	pillarEmoji?: string;
 	priority?: number;
+	time_block?: string;
+	context?: string;
+	notes?: string;
+	type?: TaskCategory;
 	recurrence?: RecurrenceRule;
+	isOneOff?: boolean;
+	oneOffId?: number;
 };
 
 export type PillarEmojiMap = Record<string, string>;
@@ -69,6 +86,11 @@ export type OneOffTaskTemplate = {
 };
 
 export type OneOffTask = OneOffTaskTemplate & {
+	id: number;
+	created_at: string;
+};
+
+export type RecurringTask = RecurringTaskTemplate & {
 	id: number;
 	created_at: string;
 };

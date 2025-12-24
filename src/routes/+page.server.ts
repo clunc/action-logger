@@ -1,8 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { loadTaskTemplate } from '$lib/server/taskConfig';
 import { listOneOffs } from '$lib/server/oneOffStore';
-import { toDateString } from '$lib/date';
-import type { OneOffTask, TaskTemplate } from '$lib/types';
+import { listRecurringTasks } from '$lib/server/recurringStore';
+import type { OneOffTask, RecurringTask, TaskTemplate } from '$lib/types';
 import { isRecurrenceActiveToday } from '$lib/recurrence';
 
 const slugify = (value: string) =>
@@ -12,11 +12,10 @@ const slugify = (value: string) =>
 		.replace(/^-+|-+$/g, '')
 		|| 'task';
 
-const uuid = () => crypto.randomUUID();
-
 export const load: PageServerLoad = async () => {
 	try {
 		const { template, version } = await loadTaskTemplate();
+		const recurring = await listRecurringTasks();
 		const oneOffs = await listOneOffs();
 		const active = template.filter((item) => isRecurrenceActiveToday(item.recurrence));
 		const inactive = template.filter((item) => !isRecurrenceActiveToday(item.recurrence));
@@ -29,15 +28,45 @@ export const load: PageServerLoad = async () => {
 				return bPri - aPri;
 		});
 
-		const combined = [...sortByPriority(active), ...sortByPriority(inactive)].map((item) => ({
-			...item,
-			id: item.id ?? uuid()
+		const idSet = new Set<string>();
+		const pickId = (item: TaskTemplate, idx: number) => {
+			const base = (item.id ?? slugify(item.name)) || `task-${idx + 1}`;
+			let candidate = base;
+			let counter = 2;
+			while (idSet.has(candidate)) {
+				candidate = `${base}-${counter++}`;
+			}
+			idSet.add(candidate);
+			return candidate;
+		};
+
+		const recurringTemplates: TaskTemplate[] = recurring.map((item) => ({
+			id: `recurring-${item.id}`,
+			name: item.title,
+			defaultDurationSeconds: 0,
+			subtaskLabels: [''],
+			pipeline: item.pipeline,
+			pillar: item.pillar,
+			priority: item.priority,
+			recurrence: item.recurrence,
+			type: item.type,
+			time_block: item.time_block,
+			context: item.context,
+			notes: item.notes
 		}));
+
+		const combined = [...sortByPriority([...active, ...recurringTemplates]), ...sortByPriority(inactive)].map(
+			(item, idx) => ({
+				...item,
+				id: pickId(item, idx)
+			})
+		);
 
 		return {
 			taskTemplate: combined,
 			templateVersion: version,
-			oneOffs: oneOffs as OneOffTask[]
+			oneOffs: oneOffs as OneOffTask[],
+			recurringTasks: recurring as RecurringTask[]
 		};
 	} catch (error) {
 		console.error('Failed to load task template, using fallback', error);
@@ -45,7 +74,8 @@ export const load: PageServerLoad = async () => {
 		return {
 			taskTemplate: fallback,
 			templateVersion: Date.now(),
-			oneOffs: [] as OneOffTask[]
+			oneOffs: [] as OneOffTask[],
+			recurringTasks: [] as RecurringTask[]
 		};
 	}
 };

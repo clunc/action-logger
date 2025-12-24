@@ -8,6 +8,7 @@ const isValidEntry = (entry: unknown): entry is HistoryEntry => {
 
 	const candidate = entry as Record<string, unknown>;
 	return (
+		(candidate.taskId === undefined || typeof candidate.taskId === 'string') &&
 		typeof candidate.task === 'string' &&
 		typeof candidate.subtaskNumber === 'number' &&
 		typeof candidate.durationSeconds === 'number' &&
@@ -39,6 +40,8 @@ export const DELETE: RequestHandler = async ({ request }) => {
 	if (
 		!entry ||
 		typeof entry !== 'object' ||
+		((entry as Record<string, unknown>).taskId !== undefined &&
+			typeof (entry as Record<string, unknown>).taskId !== 'string') ||
 		typeof (entry as Record<string, unknown>).task !== 'string' ||
 		typeof (entry as Record<string, unknown>).timestamp !== 'string' ||
 		typeof (entry as Record<string, unknown>).subtaskNumber !== 'number'
@@ -46,12 +49,13 @@ export const DELETE: RequestHandler = async ({ request }) => {
 		return json({ error: 'Invalid delete payload' }, { status: 400 });
 	}
 
-	const { task, subtaskNumber, timestamp } = entry as {
+	const { taskId, task, subtaskNumber, timestamp } = entry as {
+		taskId?: string;
 		task: string;
 		subtaskNumber: number;
 		timestamp: string;
 	};
 
-	const deleted = await deleteTodayEntry({ task, subtaskNumber, timestamp });
+	const deleted = await deleteTodayEntry({ taskId, task, subtaskNumber, timestamp });
 	return json({ ok: true, deleted });
 };

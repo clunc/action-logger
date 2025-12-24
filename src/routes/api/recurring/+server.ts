@@ -1,11 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { createOneOff, deleteOneOffById, getOneOffBackendStatus, listOneOffs } from '$lib/server/oneOffStore';
+import { createRecurringTask, deleteRecurringById, getRecurringBackendStatus, listRecurringTasks } from '$lib/server/recurringStore';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
-	const date = url.searchParams.get('date') ?? undefined;
-	const tasks = await listOneOffs(date);
-	return json({ tasks, backend: getOneOffBackendStatus() });
+export const GET: RequestHandler = async () => {
+	const tasks = await listRecurringTasks();
+	return json({ tasks, backend: getRecurringBackendStatus() });
 };
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -17,10 +16,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		const created = await createOneOff(task as Record<string, unknown>);
+		const created = await createRecurringTask(task as Record<string, unknown>);
 		return json({ task: created });
 	} catch (error: unknown) {
-		console.error('one-offs POST failed', error);
+		console.error('recurring POST failed', error);
 		const message = error instanceof Error ? error.message : 'Failed to create task';
 		return json({ error: message }, { status: 400 });
 	}
@@ -34,10 +33,10 @@ export const DELETE: RequestHandler = async ({ url }) => {
 	}
 
 	try {
-		const deleted = await deleteOneOffById(id);
+		const deleted = await deleteRecurringById(id);
 		return json({ ok: true, deleted });
 	} catch (error) {
-		console.error('one-offs DELETE failed', error);
+		console.error('recurring DELETE failed', error);
 		return json({ error: 'Failed to delete task' }, { status: 400 });
 	}
 };

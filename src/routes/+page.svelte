@@ -3,9 +3,10 @@
 	import TaskCard from '$lib/components/TaskCard.svelte';
 	import HistoryList from '$lib/components/HistoryList.svelte';
 	import { appendHistory, deleteHistoryEntry, fetchHistory } from '$lib/api/history';
-	import { createOneOffClient } from '$lib/api/oneOffs';
+	import { createOneOffClient, deleteOneOffClient } from '$lib/api/oneOffs';
+	import { createRecurringClient } from '$lib/api/recurring';
 	import { createSession, todayString } from '$lib/tasks';
-	import type { HistoryEntry, SessionTask, TaskTemplate, OneOffTask } from '$lib/types';
+	import type { HistoryEntry, SessionTask, TaskTemplate, OneOffTask, RecurringTask } from '$lib/types';
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
 
@@ -18,6 +19,8 @@
 	let loadError = '';
 	let templateVersion = data.templateVersion;
 	let oneOffs: OneOffTask[] = data.oneOffs ?? [];
+	let recurringTasks: RecurringTask[] = data.recurringTasks ?? [];
+	let baseTemplates: TaskTemplate[] = [...data.taskTemplate];
 	let createError = '';
 	let creating = false;
 	let newOneOff = {
@@ -41,6 +44,25 @@
 	let recurrenceYearMonth = '';
 	let recurrenceYearDay = '';
 	let oneOffDueDate = '';
+	let showDeleteModal = false;
+	let deleteTargetId: number | null = null;
+	let deleteTargetName = '';
+	let allTemplates: TaskTemplate[] = [];
+	const recurringToTemplate = (task: RecurringTask): TaskTemplate => ({
+		id: `recurring-${task.id}`,
+		name: task.title,
+		defaultDurationSeconds: 0,
+		subtaskLabels: [''],
+		pipeline: task.pipeline,
+		pillar: task.pillar,
+		priority: task.priority,
+		recurrence: task.recurrence,
+		type: task.type,
+		time_block: task.time_block,
+		context: task.context,
+		notes: task.notes
+	});
+	const templateKey = (task: { id?: string; name: string }) => task.id ?? task.name;
 	$: {
 		if (pipelineSelect && pipelineSelect !== '__custom') {
 			newOneOff.pipeline = pipelineSelect;
@@ -120,6 +142,7 @@
 		subtask.durationSeconds = durationSeconds;
 
 		const entry: HistoryEntry = {
+			taskId: task.id,
 			task: task.name,
 			subtaskNumber: subtask.subtaskNumber,
 			durationSeconds,
@@ -152,7 +175,19 @@
 		const prevHistory = [...history];
 		const prevTaskState = JSON.stringify(currentSession);
 
+		const allowNameFallback = currentSession.filter((t) => t.name === task.name).length === 1;
+		const matchingHistory = history.find(
+			(h) =>
+				h.subtaskNumber === subtask.subtaskNumber &&
+				h.timestamp === subtask.timestamp &&
+				((task.id && h.taskId === task.id) ||
+					(!task.id && h.task === task.name) ||
+					(allowNameFallback && h.task === task.name))
+		);
+		const entryTaskId = matchingHistory?.taskId ?? task.id;
+
 		const entry = {
+			taskId: entryTaskId ?? undefined,
 			task: task.name,
 			subtaskNumber: subtask.subtaskNumber,
 			timestamp: subtask.timestamp
@@ -169,7 +204,14 @@
 			return;
 		}
 
-		const index = history.findIndex((h) => h.task === entry.task && h.subtaskNumber === entry.subtaskNumber && h.timestamp === entry.timestamp);
+		const index = history.findIndex(
+			(h) =>
+				h.subtaskNumber === entry.subtaskNumber &&
+				h.timestamp === entry.timestamp &&
+				((entry.taskId && h.taskId === entry.taskId) ||
+					(!entry.taskId && h.taskId == null && h.task === entry.task) ||
+					(allowNameFallback && h.task === entry.task))
+		);
 
 		if (index !== -1) {
 			history.splice(index, 1);
@@ -184,8 +226,16 @@
 	}
 
 	function mergeInProgressSession(newSession: SessionTask[]): SessionTask[] {
+		const nameCounts = newSession.reduce((acc, task) => {
+			acc[task.name] = (acc[task.name] ?? 0) + 1;
+			return acc;
+		}, {} as Record<string, number>);
+
 		return newSession.map((task) => {
-			const current = currentSession.find((s) => s.name === task.name);
+			const allowNameFallback = (nameCounts[task.name] ?? 1) === 1;
+			const current = currentSession.find(
+				(s) => (task.id && s.id === task.id) || (allowNameFallback && s.name === task.name)
+			);
 			if (!current) return task;
 
 			const subtasks = task.subtasks.map((subtask) => {
@@ -243,41 +293,53 @@
 	$: streakDays = streakInfo.count;
 	$: streakHasToday = streakInfo.hasToday;
 	$: pillarEmojiMap = Object.fromEntries(
-		data.taskTemplate
+		baseTemplates
 			.filter((task) => task.pillar && task.pillarEmoji)
 			.map((task) => [task.pillar?.toLowerCase() ?? '', task.pillarEmoji])
 	);
-	$: oneOffTemplates = oneOffs.map((task) => ({
+	$: oneOffTemplates = oneOffs.map<TaskTemplate>((task) => ({
+		id: `oneoff-${task.id}`,
 		name: task.title,
 		defaultDurationSeconds: 0,
 		subtaskLabels: [''],
 		pillar: task.pillar,
 		pillarEmoji: task.pillar ? pillarEmojiMap[task.pillar.toLowerCase()] : undefined,
 		priority: task.priority,
-		recurrence: task.recurrence
+		recurrence: { frequency: 'daily' as const },
+		isOneOff: true,
+		oneOffId: task.id
 	}));
-	$: allTemplates = [...data.taskTemplate, ...oneOffTemplates];
+	$: allTemplates = [...baseTemplates, ...oneOffTemplates];
 	$: oneOffRecurrenceLabels = Object.fromEntries(
 		oneOffs.map((task) => {
-			if (!task.scheduled_for) return [task.title, 'One-off'];
+			const key = `oneoff-${task.id}`;
+			if (!task.scheduled_for) return [key, 'One-off'];
 			const todayIso = new Date().toISOString().slice(0, 10);
 			const isToday = task.scheduled_for === todayIso;
-			return [task.title, isToday ? 'One-off (today)' : `One-off (due ${task.scheduled_for})`];
+			return [key, isToday ? 'One-off (today)' : `One-off (due ${task.scheduled_for})`];
 		})
 	);
-	$: subtaskLabelsMap = Object.fromEntries(
-		allTemplates.map((task) => [task.name, task.subtaskLabels ?? task.holdLabels ?? []])
-	);
-	$: recurrenceLabels = Object.fromEntries(
-		allTemplates.map((task) => [
-			task.name,
-			oneOffRecurrenceLabels[task.name] ?? formatRecurrence(task.recurrence)
-		])
-	);
+	$: subtaskLabelsMap = allTemplates.reduce((acc, task) => {
+		const labels = task.subtaskLabels ?? [];
+		const key = templateKey(task);
+		acc[key] = labels;
+		if (!task.id) {
+			acc[task.name] = labels;
+		}
+		return acc;
+	}, {} as Record<string, string[] | undefined>);
+	$: recurrenceLabels = allTemplates.reduce((acc, task) => {
+		const key = templateKey(task);
+		acc[key] = oneOffRecurrenceLabels[key] ?? formatRecurrence(task.recurrence);
+		if (!task.id) {
+			acc[task.name] = acc[key];
+		}
+		return acc;
+	}, {} as Record<string, string>);
 	$: pipelineOptions = Array.from(
 		new Set(
 			[
-				...data.taskTemplate.map((t) => t.pipeline).filter(Boolean),
+				...baseTemplates.map((t) => t.pipeline).filter(Boolean),
 				...oneOffs.map((o) => o.pipeline).filter(Boolean)
 			] as string[]
 		)
@@ -285,7 +347,7 @@
 	$: pillarOptions = Array.from(
 		new Set(
 			[
-				...data.taskTemplate.map((t) => t.pillar).filter(Boolean),
+				...baseTemplates.map((t) => t.pillar).filter(Boolean),
 				...oneOffs.map((o) => o.pillar).filter(Boolean)
 			] as string[]
 		)
@@ -377,8 +439,15 @@
 				payload.scheduled_for = oneOffDueDate;
 			}
 
-			const created = await createOneOffClient(payload);
-			oneOffs = [created, ...oneOffs];
+			if (newOneOffKind === 'recurring') {
+				const createdRecurring = await createRecurringClient(payload);
+				recurringTasks = [createdRecurring, ...recurringTasks];
+				baseTemplates = [recurringToTemplate(createdRecurring), ...baseTemplates];
+			} else {
+				const created = await createOneOffClient(payload);
+				oneOffs = [created, ...oneOffs];
+			}
+
 			currentSession = mergeInProgressSession(createSession(allTemplates, history));
 			newOneOff = {
 				title: '',
@@ -416,6 +485,66 @@
 	function closeOneOffModal() {
 		if (creating) return;
 		showOneOffModal = false;
+	}
+
+	function openDeleteModal(oneOffId: number, name: string) {
+		deleteTargetId = oneOffId;
+		deleteTargetName = name;
+		showDeleteModal = true;
+	}
+
+	function closeDeleteModal() {
+		showDeleteModal = false;
+		deleteTargetId = null;
+		deleteTargetName = '';
+	}
+
+	async function confirmDeleteModal() {
+		if (!deleteTargetId) return;
+		await deleteOneOff(deleteTargetId, deleteTargetName);
+		closeDeleteModal();
+	}
+
+	function handleBackdropKey(event: KeyboardEvent, onClose: () => void) {
+		if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			onClose();
+		}
+	}
+
+	async function deleteOneOff(oneOffId: number | undefined, taskName: string) {
+		if (!oneOffId) return;
+		const target = oneOffs.find((o) => o.id === oneOffId);
+		if (!target) return;
+		const prevOneOffs = [...oneOffs];
+		const prevSession = JSON.stringify(currentSession);
+		const updatedOneOffs = oneOffs.filter((o) => o.id !== oneOffId);
+		const updatedTemplates = [
+			...baseTemplates,
+			...updatedOneOffs.map<TaskTemplate>((task) => ({
+				id: `oneoff-${task.id}`,
+				name: task.title,
+				defaultDurationSeconds: 0,
+				subtaskLabels: [''],
+				pillar: task.pillar,
+				pillarEmoji: task.pillar ? pillarEmojiMap[task.pillar.toLowerCase()] : undefined,
+				priority: task.priority,
+				recurrence: { frequency: 'daily' as const },
+				isOneOff: true,
+				oneOffId: task.id
+			}))
+		];
+
+		oneOffs = updatedOneOffs;
+		currentSession = createSession(updatedTemplates, history);
+		try {
+			await deleteOneOffClient(oneOffId);
+		} catch (error) {
+			console.error(error);
+			loadError = 'Could not delete task; restored.';
+			oneOffs = prevOneOffs;
+			currentSession = JSON.parse(prevSession);
+		}
 	}
 
 	function formatRecurrence(recurrence: TaskTemplate['recurrence']): string {
@@ -525,11 +654,12 @@
 				<TaskCard
 					task={task}
 					taskIdx={taskIdx}
-					recurrenceLabel={recurrenceLabels[task.name] ?? 'Recurring'}
+					recurrenceLabel={recurrenceLabels[templateKey(task)] ?? 'Recurring'}
 					pillarLabel={task.pillar}
 					pillarEmoji={task.pillarEmoji}
 					onLogSubtask={handleSubtaskAction}
 					onUndoSubtask={undoSubtask}
+					onDelete={task.oneOffId ? () => openDeleteModal(task.oneOffId as number, task.name) : null}
 				/>
 			{/each}
 
@@ -538,8 +668,22 @@
 	{/if}
 
 	{#if showOneOffModal}
-		<div class="modal-backdrop" on:click={closeOneOffModal}>
-			<div class="modal-card" on:click|stopPropagation>
+		<div
+			class="modal-backdrop"
+			role="button"
+			tabindex="0"
+			aria-label="Close add task dialog"
+			on:click={closeOneOffModal}
+			on:keydown={(event) => handleBackdropKey(event, closeOneOffModal)}
+		>
+			<div
+				class="modal-card"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				on:click|stopPropagation
+				on:keydown|stopPropagation
+			>
 				<header class="modal-header">
 					<h3>Add today’s one-off action</h3>
 					<button class="icon-btn" type="button" on:click={closeOneOffModal} aria-label="Close dialog">
@@ -708,6 +852,38 @@
 						</button>
 					</div>
 				</form>
+			</div>
+		</div>
+	{/if}
+
+	{#if showDeleteModal}
+		<div
+			class="modal-backdrop"
+			role="button"
+			tabindex="0"
+			aria-label="Close delete dialog"
+			on:click={closeDeleteModal}
+			on:keydown={(event) => handleBackdropKey(event, closeDeleteModal)}
+		>
+			<div
+				class="modal-card small"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				on:click|stopPropagation
+				on:keydown|stopPropagation
+			>
+				<header class="modal-header">
+					<h3>Delete one-off?</h3>
+					<button class="icon-btn" type="button" on:click={closeDeleteModal} aria-label="Close dialog">
+						✕
+					</button>
+				</header>
+				<p class="confirm-text">Delete “{deleteTargetName}”? This cannot be undone.</p>
+				<div class="form-actions space-between">
+					<button class="ghost-btn" type="button" on:click={closeDeleteModal}>Cancel</button>
+					<button class="danger-btn" type="button" on:click={confirmDeleteModal}>Delete</button>
+				</div>
 			</div>
 		</div>
 	{/if}
@@ -892,13 +1068,6 @@
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 	}
 
-	.oneoff-form-card h2 {
-		font-size: 15px;
-		font-weight: 800;
-		color: #0f172a;
-		margin-bottom: 10px;
-	}
-
 	.oneoff-form {
 		display: grid;
 		gap: 10px;
@@ -1053,6 +1222,10 @@
 		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
 	}
 
+	.modal-card.small {
+		max-width: 360px;
+	}
+
 	.modal-header {
 		display: flex;
 		align-items: center;
@@ -1076,6 +1249,36 @@
 
 	.icon-btn:hover {
 		color: #0f172a;
+	}
+
+	.ghost-btn {
+		border: 1px solid #e2e8f0;
+		background: #f8fafc;
+		color: #0f172a;
+		padding: 9px 12px;
+		border-radius: 10px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.danger-btn {
+		border: 1px solid #ef4444;
+		background: #fee2e2;
+		color: #b91c1c;
+		padding: 9px 12px;
+		border-radius: 10px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.confirm-text {
+		font-size: 14px;
+		color: #0f172a;
+		margin: 8px 0 14px;
+	}
+
+	.form-actions.space-between {
+		justify-content: space-between;
 	}
 
 	.chip-row {

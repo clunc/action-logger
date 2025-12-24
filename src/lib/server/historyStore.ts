@@ -80,11 +80,12 @@ function ensureHistoryTable(db: any) {
 	if (!hasTable) {
 		db.exec(`
 			CREATE TABLE history (
+				taskId TEXT,
 				task TEXT NOT NULL,
 				subtaskNumber INTEGER NOT NULL,
 				durationSeconds INTEGER NOT NULL,
 				timestamp TEXT NOT NULL,
-				PRIMARY KEY (task, subtaskNumber, timestamp)
+				PRIMARY KEY (taskId, task, subtaskNumber, timestamp)
 			)
 		`);
 		return;
@@ -93,41 +94,35 @@ function ensureHistoryTable(db: any) {
 	const columns = db.prepare(`PRAGMA table_info(history)`).all() as { name: string }[];
 	const hasTask = columns.some((c) => c.name === 'task');
 	const hasSubtask = columns.some((c) => c.name === 'subtaskNumber');
-	if (hasTask && hasSubtask) return;
+	const hasTaskId = columns.some((c) => c.name === 'taskId');
+	if (hasTask && hasSubtask && hasTaskId) return;
 
 	const hasStretch = columns.some((c) => c.name === 'stretch');
 	const hasHold = columns.some((c) => c.name === 'holdNumber');
 
-	if (hasStretch && hasHold) {
-		db.exec(`ALTER TABLE history RENAME TO history_legacy`);
-		db.exec(`
-			CREATE TABLE history (
-				task TEXT NOT NULL,
-				subtaskNumber INTEGER NOT NULL,
-				durationSeconds INTEGER NOT NULL,
-				timestamp TEXT NOT NULL,
-				PRIMARY KEY (task, subtaskNumber, timestamp)
-			)
-		`);
-		db.exec(`
-			INSERT INTO history (task, subtaskNumber, durationSeconds, timestamp)
-			SELECT stretch, holdNumber, durationSeconds, timestamp FROM history_legacy
-		`);
-		db.exec(`DROP TABLE history_legacy`);
-		return;
-	}
-
-	// Fallback: recreate with the desired schema
-	db.exec(`DROP TABLE IF EXISTS history`);
+	db.exec(`ALTER TABLE history RENAME TO history_legacy`);
 	db.exec(`
 		CREATE TABLE history (
+			taskId TEXT,
 			task TEXT NOT NULL,
 			subtaskNumber INTEGER NOT NULL,
 			durationSeconds INTEGER NOT NULL,
 			timestamp TEXT NOT NULL,
-			PRIMARY KEY (task, subtaskNumber, timestamp)
+			PRIMARY KEY (taskId, task, subtaskNumber, timestamp)
 		)
 	`);
+	if (hasTask && hasSubtask) {
+		db.exec(`
+			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp)
+			SELECT NULL, task, subtaskNumber, durationSeconds, timestamp FROM history_legacy
+		`);
+	} else if (hasStretch && hasHold) {
+		db.exec(`
+			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp)
+			SELECT NULL, stretch, holdNumber, durationSeconds, timestamp FROM history_legacy
+		`);
+	}
+	db.exec(`DROP TABLE history_legacy`);
 }
 
 async function readHistoryJson(): Promise<HistoryEntry[]> {
@@ -137,6 +132,7 @@ async function readHistoryJson(): Promise<HistoryEntry[]> {
 		const parsed = JSON.parse(raw);
 		return Array.isArray(parsed)
 			? (parsed as any[]).map((entry) => ({
+					taskId: (entry as any).taskId ?? null,
 					task: (entry as any).task ?? (entry as any).stretch ?? '',
 					subtaskNumber:
 						typeof (entry as any).subtaskNumber === 'number'
@@ -171,7 +167,7 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 		const db = initDb(paths.dbFile);
 		const rows = db
 			.prepare(
-				`SELECT task, subtaskNumber, durationSeconds, timestamp FROM history ORDER BY datetime(timestamp) DESC`
+				`SELECT taskId, task, subtaskNumber, durationSeconds, timestamp FROM history ORDER BY datetime(timestamp) DESC`
 			)
 			.all();
 		db.close();
@@ -193,7 +189,7 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 		const insert = db.prepare(
-			`INSERT INTO history (task, subtaskNumber, durationSeconds, timestamp) VALUES (@task, @subtaskNumber, @durationSeconds, @timestamp)`
+			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp)`
 		);
 
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
@@ -219,7 +215,7 @@ export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 		const insert = db.prepare(
-			`INSERT INTO history (task, subtaskNumber, durationSeconds, timestamp) VALUES (@task, @subtaskNumber, @durationSeconds, @timestamp)`
+			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp)`
 		);
 
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
@@ -237,10 +233,12 @@ export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 }
 
 export async function deleteTodayEntry({
+	taskId,
 	task,
 	subtaskNumber,
 	timestamp
-}: {
+	}: {
+	taskId?: string | null;
 	task: string;
 	subtaskNumber: number;
 	timestamp: string;
@@ -252,7 +250,8 @@ export async function deleteTodayEntry({
 				!(
 					entry.task === task &&
 					entry.subtaskNumber === subtaskNumber &&
-					entry.timestamp === timestamp
+					entry.timestamp === timestamp &&
+					(taskId ? entry.taskId === taskId : entry.taskId == null)
 				)
 		);
 		await writeHistoryJson(filtered);
@@ -263,8 +262,15 @@ export async function deleteTodayEntry({
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 
-		const stmt = db.prepare(`DELETE FROM history WHERE task = ? AND subtaskNumber = ? AND timestamp = ?`);
-		const result = stmt.run(task, subtaskNumber, timestamp);
+		const sql =
+			taskId !== undefined && taskId !== null
+				? `DELETE FROM history WHERE taskId = ? AND task = ? AND subtaskNumber = ? AND timestamp = ?`
+				: `DELETE FROM history WHERE taskId IS NULL AND task = ? AND subtaskNumber = ? AND timestamp = ?`;
+		const stmt = db.prepare(sql);
+		const result =
+			taskId !== undefined && taskId !== null
+				? stmt.run(taskId, task, subtaskNumber, timestamp)
+				: stmt.run(task, subtaskNumber, timestamp);
 		db.close();
 
 		return result.changes ?? 0;

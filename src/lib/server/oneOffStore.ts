@@ -231,3 +231,29 @@ export function getOneOffBackendStatus() {
 		sqliteLoadError
 	};
 }
+
+export async function deleteOneOffById(id: number): Promise<number> {
+	if (!Number.isInteger(id) || id <= 0) throw new Error('Invalid id');
+
+	if (!Database) {
+		const all = await readJson();
+		const filtered = all.filter((entry) => entry.id !== id);
+		await writeJson(filtered);
+		return all.length - filtered.length;
+	}
+
+	try {
+		const paths = await ensureDbFile();
+		const db = initDb(paths.dbFile);
+		const stmt = db.prepare(`DELETE FROM one_offs WHERE id = ?`);
+		const result = stmt.run(id);
+		db.close();
+		return result.changes ?? 0;
+	} catch (error) {
+		console.error('oneOffStore: failed to delete one-off', error);
+		const all = await readJson();
+		const filtered = all.filter((entry) => entry.id !== id);
+		await writeJson(filtered);
+		return all.length - filtered.length;
+	}
+}

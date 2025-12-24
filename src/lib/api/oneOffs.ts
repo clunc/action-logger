@@ -27,3 +27,11 @@ export async function createOneOffClient(input: Partial<OneOffTaskTemplate>): Pr
 	if (!data.task) throw new Error('Invalid response from server');
 	return data.task;
 }
+
+export async function deleteOneOffClient(id: number): Promise<void> {
+	const res = await fetch(`${ENDPOINT}?id=${id}`, { method: 'DELETE' });
+	if (!res.ok) {
+		const data = (await res.json().catch(() => ({}))) as { error?: string };
+		throw new Error(data.error || `Failed to delete one-off (${res.status})`);
+	}
+}

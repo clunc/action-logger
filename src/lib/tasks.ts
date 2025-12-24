@@ -6,16 +6,22 @@ export const todayString = () => new Date().toDateString();
 
 export function createSession(template: TaskTemplate[], history: HistoryEntry[]): SessionTask[] {
 	const today = todayString();
+	const nameCounts = template.reduce((acc, task) => {
+		acc[task.name] = (acc[task.name] ?? 0) + 1;
+		return acc;
+	}, {} as Record<string, number>);
 
 	const cloneHold = (taskTemplate: TaskTemplate): SessionTask => {
 		const defaultDurationSeconds = taskTemplate.defaultDurationSeconds ?? DEFAULT_SUBTASK_SECONDS;
+		const allowNameFallback = (nameCounts[taskTemplate.name] ?? 1) === 1;
 
 		const totalSubtasks = Math.max(1, taskTemplate.subtaskLabels?.length ?? 1);
 		const subtasks: SubtaskEntry[] = Array.from({ length: totalSubtasks }, (_, idx) => {
 			const subtaskNumber = idx + 1;
 			const todaysLog = history.find(
 				(h) =>
-					h.task === taskTemplate.name &&
+					((taskTemplate.id && h.taskId === taskTemplate.id) ||
+						(allowNameFallback && h.task === taskTemplate.name)) &&
 					h.subtaskNumber === subtaskNumber &&
 					new Date(h.timestamp).toDateString() === today
 			);
@@ -62,8 +68,13 @@ export function formatTimestamp(isoString: string) {
 	});
 }
 
-export function getSubtaskLabel(taskName: string, subtaskNumber: number, template: TaskTemplate[]) {
-	const entry = template.find((task) => task.name === taskName);
+export function getSubtaskLabel(
+	taskName: string,
+	subtaskNumber: number,
+	template: TaskTemplate[],
+	taskId?: string | null
+) {
+	const entry = template.find((task) => (taskId ? task.id === taskId : task.name === taskName));
 	const label = entry?.subtaskLabels?.[subtaskNumber - 1];
 	if (label) return label;
 	if (entry?.subtaskLabels?.length) return `Subtask ${subtaskNumber}`;

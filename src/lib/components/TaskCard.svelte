@@ -8,6 +8,7 @@
 export let recurrenceLabel: string = 'Daily';
 export let pillarLabel: string | undefined = undefined;
 export let pillarEmoji: string | undefined = undefined;
+export let onDelete: (() => void) | null = null;
 
 	$: isPicked = task.subtasks.some((subtask) => subtask.completed);
 	$: recurrenceIcon = recurrenceLabel.startsWith('One-off') ? '📌' : '🔁';
@@ -16,9 +17,16 @@ export let pillarEmoji: string | undefined = undefined;
 <section class={`card ${isPicked ? 'picked' : ''}`}>
 	<header class="card-header">
 		<div class="card-row top">
-			<div class="recurrence-pill" aria-label="Recurring task">
-				<span class="pill-icon">{recurrenceIcon}</span>
-				{recurrenceLabel}
+			<div class="pill-row">
+				<div class="recurrence-pill" aria-label="Recurring task">
+					<span class="pill-icon">{recurrenceIcon}</span>
+					{recurrenceLabel}
+				</div>
+				{#if onDelete}
+					<button class="delete-pill" type="button" on:click={onDelete} aria-label="Delete task">
+						<span aria-hidden="true">✕</span> Remove
+					</button>
+				{/if}
 			</div>
 			{#if pillarLabel}
 				<div class="pillar-pill" aria-label="Pillar">
@@ -111,6 +119,12 @@ export let pillarEmoji: string | undefined = undefined;
 	.pill-icon {
 		font-size: 14px;
 	}
+
+	.pill-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
 	.card-actions {
 		display: flex;
 		gap: 10px;
@@ -161,5 +175,31 @@ export let pillarEmoji: string | undefined = undefined;
 		background: #dc2626;
 		border-color: #b91c1c;
 		color: white;
+	}
+
+	.delete-pill {
+		padding: 4px 10px;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		border-radius: 999px;
+		border: 1px solid #e2e8f0;
+		background: transparent;
+		color: #475569;
+		font-size: 12px;
+		font-weight: 700;
+		cursor: pointer;
+		transition: all 0.12s ease;
+	}
+
+	.delete-pill:hover {
+		background: #fff1f2;
+		border-color: #fecdd3;
+		color: #b91c1c;
+	}
+
+	.delete-pill:focus-visible {
+		outline: 2px solid #fecdd3;
+		outline-offset: 2px;
 	}
 </style>
