@@ -41,6 +41,19 @@
 	let recurrenceYearMonth = '';
 	let recurrenceYearDay = '';
 	let oneOffDueDate = '';
+	$: {
+		if (pipelineSelect && pipelineSelect !== '__custom') {
+			newOneOff.pipeline = pipelineSelect;
+		} else if (pipelineSelect !== '__custom') {
+			newOneOff.pipeline = '';
+		}
+
+		if (pillarSelect && pillarSelect !== '__custom') {
+			newOneOff.pillar = pillarSelect;
+		} else if (pillarSelect !== '__custom') {
+			newOneOff.pillar = '';
+		}
+	}
 
 	$: {
 		if (pipelineSelect && pipelineSelect !== '__custom') {
@@ -63,7 +76,7 @@
 			console.error(error);
 			loadError = 'Could not load history. Changes will not be saved.';
 		} finally {
-			currentSession = createSession(data.taskTemplate, history);
+			currentSession = createSession(allTemplates, history);
 			ready = true;
 			pollInterval = setInterval(syncHistory, 15000);
 			if (import.meta.env.DEV) {
@@ -80,7 +93,7 @@
 		try {
 			const latest = await fetchHistory();
 			history = latest;
-			currentSession = mergeInProgressSession(createSession(data.taskTemplate, history));
+			currentSession = mergeInProgressSession(createSession(allTemplates, history));
 		} catch (error) {
 			console.error('Failed to refresh history', error);
 			loadError = 'Could not refresh history from server.';
@@ -229,11 +242,30 @@
 	$: streakInfo = calculateStreak(history);
 	$: streakDays = streakInfo.count;
 	$: streakHasToday = streakInfo.hasToday;
+	$: oneOffTemplates = oneOffs.map((task) => ({
+		name: task.title,
+		defaultDurationSeconds: 0,
+		subtaskLabels: [''],
+		pillar: task.pillar,
+		pillarEmoji: undefined,
+		priority: task.priority,
+		recurrence: task.recurrence
+	}));
+	$: allTemplates = [...data.taskTemplate, ...oneOffTemplates];
+	$: oneOffRecurrenceLabels = Object.fromEntries(
+		oneOffs.map((task) => [
+			task.title,
+			task.scheduled_for ? `One-off (due ${task.scheduled_for})` : 'One-off'
+		])
+	);
 	$: subtaskLabelsMap = Object.fromEntries(
-		data.taskTemplate.map((task) => [task.name, task.subtaskLabels ?? task.holdLabels ?? []])
+		allTemplates.map((task) => [task.name, task.subtaskLabels ?? task.holdLabels ?? []])
 	);
 	$: recurrenceLabels = Object.fromEntries(
-		data.taskTemplate.map((task) => [task.name, formatRecurrence(task.recurrence)])
+		allTemplates.map((task) => [
+			task.name,
+			oneOffRecurrenceLabels[task.name] ?? formatRecurrence(task.recurrence)
+		])
 	);
 	$: pipelineOptions = Array.from(
 		new Set(
@@ -340,6 +372,7 @@
 
 			const created = await createOneOffClient(payload);
 			oneOffs = [created, ...oneOffs];
+			currentSession = mergeInProgressSession(createSession(allTemplates, history));
 			newOneOff = {
 				title: '',
 				type: 'operational',
@@ -481,34 +514,6 @@
 				<span class="add-icon">＋</span>
 				<span class="add-title">Add task</span>
 			</button>
-			{#if oneOffs.length}
-				<section class="oneoff-section">
-					<h2>Today's one-offs</h2>
-					<div class="oneoff-grid">
-						{#each oneOffs as task}
-							<div class="oneoff-card">
-								<div class="oneoff-header">
-									<div class="pill type">{task.type}</div>
-									{#if task.priority !== undefined}
-										<div class="pill priority">P{task.priority}</div>
-									{/if}
-								</div>
-								<div class="oneoff-title">{task.title}</div>
-								<div class="oneoff-meta">
-									<div class="pill muted">{task.pipeline}</div>
-									<div class="pill muted">{task.pillar}</div>
-									{#if task.time_block}
-										<div class="pill time">{task.time_block}</div>
-									{/if}
-								</div>
-								{#if task.notes}
-									<p class="oneoff-notes">{task.notes}</p>
-								{/if}
-							</div>
-						{/each}
-					</div>
-				</section>
-			{/if}
 			{#each currentSession as task, taskIdx}
 				<TaskCard
 					task={task}
@@ -829,58 +834,6 @@
 		margin-top: 4px;
 		color: #6b7280;
 		font-size: 13px;
-	}
-
-	.oneoff-section {
-		margin-bottom: 18px;
-	}
-
-	.oneoff-section h2 {
-		font-size: 15px;
-		font-weight: 800;
-		color: #0f172a;
-		margin: 10px 0 8px;
-	}
-
-	.oneoff-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-		gap: 10px;
-	}
-
-	.oneoff-card {
-		background: white;
-		border: 1px solid #eef1f6;
-		border-radius: 10px;
-		padding: 12px 12px 10px;
-		box-shadow: 0 1px 5px rgba(0, 0, 0, 0.06);
-		display: grid;
-		gap: 6px;
-	}
-
-	.oneoff-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.oneoff-title {
-		font-size: 15px;
-		font-weight: 700;
-		color: #111827;
-	}
-
-	.oneoff-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-	}
-
-	.oneoff-notes {
-		font-size: 13px;
-		color: #4b5563;
-		line-height: 1.4;
-		margin-top: 2px;
 	}
 
 	.pill {
