@@ -242,12 +242,17 @@
 	$: streakInfo = calculateStreak(history);
 	$: streakDays = streakInfo.count;
 	$: streakHasToday = streakInfo.hasToday;
+	$: pillarEmojiMap = Object.fromEntries(
+		data.taskTemplate
+			.filter((task) => task.pillar && task.pillarEmoji)
+			.map((task) => [task.pillar?.toLowerCase() ?? '', task.pillarEmoji])
+	);
 	$: oneOffTemplates = oneOffs.map((task) => ({
 		name: task.title,
 		defaultDurationSeconds: 0,
 		subtaskLabels: [''],
 		pillar: task.pillar,
-		pillarEmoji: undefined,
+		pillarEmoji: task.pillar ? pillarEmojiMap[task.pillar.toLowerCase()] : undefined,
 		priority: task.priority,
 		recurrence: task.recurrence
 	}));
