@@ -5,18 +5,19 @@
 	export let taskIdx: number;
 	export let onLogSubtask: (taskIdx: number, subtaskIdx: number) => void;
 	export let onUndoSubtask: (taskIdx: number, subtaskIdx: number) => void;
-	export let recurrenceLabel: string = 'Daily';
-	export let pillarLabel: string | undefined = undefined;
-	export let pillarEmoji: string | undefined = undefined;
+export let recurrenceLabel: string = 'Daily';
+export let pillarLabel: string | undefined = undefined;
+export let pillarEmoji: string | undefined = undefined;
 
 	$: isPicked = task.subtasks.some((subtask) => subtask.completed);
+	$: recurrenceIcon = recurrenceLabel.startsWith('One-off') ? '📌' : '🔁';
 </script>
 
 <section class={`card ${isPicked ? 'picked' : ''}`}>
 	<header class="card-header">
 		<div class="card-row top">
 			<div class="recurrence-pill" aria-label="Recurring task">
-				<span class="pill-icon">🔁</span>
+				<span class="pill-icon">{recurrenceIcon}</span>
 				{recurrenceLabel}
 			</div>
 			{#if pillarLabel}

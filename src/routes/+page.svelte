@@ -253,10 +253,12 @@
 	}));
 	$: allTemplates = [...data.taskTemplate, ...oneOffTemplates];
 	$: oneOffRecurrenceLabels = Object.fromEntries(
-		oneOffs.map((task) => [
-			task.title,
-			task.scheduled_for ? `One-off (due ${task.scheduled_for})` : 'One-off'
-		])
+		oneOffs.map((task) => {
+			if (!task.scheduled_for) return [task.title, 'One-off'];
+			const todayIso = new Date().toISOString().slice(0, 10);
+			const isToday = task.scheduled_for === todayIso;
+			return [task.title, isToday ? 'One-off (today)' : `One-off (due ${task.scheduled_for})`];
+		})
 	);
 	$: subtaskLabelsMap = Object.fromEntries(
 		allTemplates.map((task) => [task.name, task.subtaskLabels ?? task.holdLabels ?? []])
