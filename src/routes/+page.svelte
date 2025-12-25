@@ -699,6 +699,7 @@
 				task={task}
 				taskIdx={taskIdx}
 				recurrenceLabel={recurrenceLabels[templateKey(task)] ?? 'Recurring'}
+					isOneOff={Boolean(task.isOneOff)}
 					overdue={shouldShowSkip(task)}
 					pillarLabel={task.pillar}
 					pillarEmoji={task.pillarEmoji}

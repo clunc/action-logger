@@ -12,9 +12,10 @@
 	export let onSkipSubtask: (taskIdx: number, subtaskIdx: number) => void;
 	export let showSkip: boolean = false;
 	export let overdue: boolean = false;
+	export let isOneOff: boolean = false;
 
 	$: isPicked = task.subtasks.some((subtask) => subtask.completed);
-	$: recurrenceIcon = recurrenceLabel.startsWith('One-off') ? '📌' : '🔁';
+	$: recurrenceIcon = isOneOff ? '📌' : '🔁';
 </script>
 
 <section class={`card ${isPicked ? 'picked' : ''}`}>
