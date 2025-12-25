@@ -49,6 +49,23 @@
 	let deleteTargetId: number | null = null;
 	let deleteTargetName = '';
 	let allTemplates: TaskTemplate[] = [];
+	const isOverdueTemplate = (
+		task: TaskTemplate | SessionTask,
+		hist: HistoryEntry[] = history,
+		isReady = ready
+	) => {
+		if (task.isOneOff) {
+			return isOverdueOneOff(task.dueDate);
+		}
+		if (!task.recurrence) return false;
+		if (!isReady) return false;
+		return isOverdueRecurring({
+			recurrence: task.recurrence,
+			history: hist,
+			taskId: task.id,
+			taskName: task.name
+		});
+	};
 	const recurringToTemplate = (task: RecurringTask): TaskTemplate => ({
 		id: `recurring-${task.id}`,
 		name: task.title,
@@ -314,7 +331,27 @@
 		oneOffId: task.id,
 		dueDate: task.scheduled_for
 	}));
-	$: allTemplates = [...baseTemplates, ...oneOffTemplates];
+	const sortTemplates = (
+		items: TaskTemplate[],
+		hist: HistoryEntry[] = history,
+		isReady = ready
+	) => {
+		const priorityValue = (task: TaskTemplate) =>
+			Number.isFinite(task.priority) ? (task.priority as number) : -Infinity;
+		return [...items].sort((a, b) => {
+			const aOverdue = isOverdueTemplate(a, hist, isReady);
+			const bOverdue = isOverdueTemplate(b, hist, isReady);
+			if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+			const aPri = priorityValue(a);
+			const bPri = priorityValue(b);
+			if (aPri !== bPri) return bPri - aPri;
+			if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) {
+				return a.dueDate.localeCompare(b.dueDate);
+			}
+			return (a.name || '').localeCompare(b.name || '');
+		});
+	};
+	$: allTemplates = sortTemplates([...baseTemplates, ...oneOffTemplates], history, ready);
 	$: oneOffRecurrenceLabels = Object.fromEntries(
 		oneOffs.map((task) => {
 			const key = `oneoff-${task.id}`;
@@ -333,23 +370,13 @@
 		}
 		return acc;
 	}, {} as Record<string, string[] | undefined>);
-	const shouldShowSkip = (task: TaskTemplate | SessionTask) => {
-		if (task.isOneOff) {
-			return isOverdueOneOff(task.dueDate);
-		}
-		if (task.recurrence) {
-			return isOverdueRecurring({
-				recurrence: task.recurrence,
-				history,
-				taskId: task.id,
-				taskName: task.name
-			});
-		}
-		return false;
-	};
+	const shouldShowSkip = (task: TaskTemplate | SessionTask) => isOverdueTemplate(task, history, ready);
 	$: recurrenceLabels = allTemplates.reduce((acc, task) => {
 		const key = templateKey(task);
-		acc[key] = oneOffRecurrenceLabels[key] ?? formatRecurrence(task.recurrence);
+		const baseLabel = oneOffRecurrenceLabels[key] ?? formatRecurrence(task.recurrence);
+		const overdue = isOverdueTemplate(task, history, ready);
+		const labelWithBadge = overdue ? `⏰ ${baseLabel}` : baseLabel;
+		acc[key] = labelWithBadge;
 		if (!task.id) {
 			acc[task.name] = acc[key];
 		}

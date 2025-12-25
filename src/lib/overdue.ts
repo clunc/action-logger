@@ -26,7 +26,8 @@ const parsedMockToday = mockTodayString ? new Date(`${mockTodayString}T20:00:00Z
 const mockToday = parsedMockToday && !Number.isNaN(parsedMockToday.getTime()) ? parsedMockToday : null;
 const isDevMode =
 	(typeof process !== 'undefined' && process.env?.APP_ENV === 'dev') ||
-	(typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'development');
+	(typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'development') ||
+	(typeof import.meta !== 'undefined' && (import.meta as any).env?.APP_ENV === 'dev');
 
 const resolveNow = (override?: Date) => {
 	if (override) return override;
