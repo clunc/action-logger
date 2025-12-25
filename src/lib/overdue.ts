@@ -61,7 +61,6 @@ const hasCompletionOnDate = (
 	history.some(
 		(entry) =>
 			matchesTask(entry, taskId, taskName) &&
-			entry.status !== 'pending' &&
 			entry.status !== undefined &&
 			(entry.occurrenceDate ?? entry.timestamp.slice(0, 10)) === targetIso
 	);

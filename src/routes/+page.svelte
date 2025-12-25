@@ -27,7 +27,7 @@
 		Object.entries((data as any).pillarEmojiMap ?? {}).map(([k, v]) => [k.toLowerCase(), v as string])
 	);
 	let pillarEmojiMap: Record<string, string> = { ...serverPillarEmojiMap };
-	$: baseTemplates = data.taskTemplate.map(withPillarMeta);
+	$: baseTemplates = data.taskTemplate.map((t) => withPillarMeta(t));
 	let createError = '';
 	let creating = false;
 	let newOneOff = {
@@ -65,7 +65,7 @@
 			.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
 			.join(' ');
 	};
-	const withPillarMeta = (task: TaskTemplate): TaskTemplate => {
+	const withPillarMeta = <T extends { pillar?: string | null; pillarEmoji?: string }>(task: T): T => {
 		const label = task.pillar ? formatPillarLabel(task.pillar) : task.pillar;
 		const key = task.pillar ? normalizePillarKey(task.pillar) : '';
 		const emoji = task.pillar ? pillarEmojiMap[key] ?? task.pillarEmoji : task.pillarEmoji;
@@ -96,7 +96,8 @@
 		defaultDurationSeconds: 0,
 		subtaskLabels: [''],
 		pipeline: task.pipeline,
-		...withPillarMeta({ ...task, pillar: task.pillar }),
+		pillar: task.pillar ? formatPillarLabel(task.pillar) : task.pillar,
+		pillarEmoji: task.pillar ? pillarEmojiMap[normalizePillarKey(task.pillar)] : undefined,
 		priority: task.priority,
 		recurrence: task.recurrence,
 		type: task.type,

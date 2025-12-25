@@ -1,12 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, fireEvent, cleanup } from '@testing-library/svelte';
 import TaskCard from '../TaskCard.svelte';
+import type { SessionTask } from '$lib/types';
+
+const sessionTask = (overrides: Partial<SessionTask> = {}): SessionTask => ({
+	name: 'Test Task',
+	defaultDurationSeconds: 0,
+	subtasks: [
+		{
+			subtaskNumber: 1,
+			durationSeconds: 0,
+			completed: false,
+			timestamp: null,
+			status: 'pending'
+		}
+	],
+	...overrides
+});
 
 const baseTask = (overrides: Record<string, unknown> = {}) => ({
-	task: {
-		name: 'Test Task',
-		subtasks: [{ subtaskNumber: 1, durationSeconds: 0, completed: false, timestamp: null, status: 'pending' }]
-	},
+	task: sessionTask(),
 	taskIdx: 0,
 	recurrenceLabel: 'Recurring',
 	pillarLabel: 'Planning',
