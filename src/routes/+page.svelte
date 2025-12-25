@@ -373,10 +373,7 @@
 	const shouldShowSkip = (task: TaskTemplate | SessionTask) => isOverdueTemplate(task, history, ready);
 	$: recurrenceLabels = allTemplates.reduce((acc, task) => {
 		const key = templateKey(task);
-		const baseLabel = oneOffRecurrenceLabels[key] ?? formatRecurrence(task.recurrence);
-		const overdue = isOverdueTemplate(task, history, ready);
-		const labelWithBadge = overdue ? `⏰ ${baseLabel}` : baseLabel;
-		acc[key] = labelWithBadge;
+		acc[key] = oneOffRecurrenceLabels[key] ?? formatRecurrence(task.recurrence);
 		if (!task.id) {
 			acc[task.name] = acc[key];
 		}
@@ -702,6 +699,7 @@
 				task={task}
 				taskIdx={taskIdx}
 				recurrenceLabel={recurrenceLabels[templateKey(task)] ?? 'Recurring'}
+					overdue={shouldShowSkip(task)}
 					pillarLabel={task.pillar}
 					pillarEmoji={task.pillarEmoji}
 					onLogSubtask={handleSubtaskAction}

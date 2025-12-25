@@ -11,6 +11,7 @@
 	export let onDelete: (() => void) | null = null;
 	export let onSkipSubtask: (taskIdx: number, subtaskIdx: number) => void;
 	export let showSkip: boolean = false;
+	export let overdue: boolean = false;
 
 	$: isPicked = task.subtasks.some((subtask) => subtask.completed);
 	$: recurrenceIcon = recurrenceLabel.startsWith('One-off') ? '📌' : '🔁';
@@ -20,6 +21,12 @@
 	<header class="card-header">
 		<div class="card-row top">
 			<div class="pill-row">
+				{#if overdue}
+					<div class="overdue-pill" aria-label="Overdue task">
+						<span class="pill-icon">🚨</span>
+						Overdue
+					</div>
+				{/if}
 				<div class="recurrence-pill" aria-label="Recurring task">
 					<span class="pill-icon">{recurrenceIcon}</span>
 					{recurrenceLabel}
@@ -114,6 +121,7 @@
 	}
 
 	.recurrence-pill,
+	.overdue-pill,
 	.pillar-pill {
 		display: inline-flex;
 		align-items: center;
@@ -131,6 +139,12 @@
 		background: #eef2ff;
 		border-color: #c7d2fe;
 		color: #4338ca;
+	}
+
+	.overdue-pill {
+		background: #fef2f2;
+		border-color: #fecdd3;
+		color: #b91c1c;
 	}
 
 	.pill-icon {
