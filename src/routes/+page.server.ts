@@ -61,13 +61,23 @@ export const load: PageServerLoad = async () => {
 			notes: item.notes
 		}));
 
-		const combined = [...sortByPriority([...active, ...recurringTemplates]), ...sortByPriority(inactive)].map(
-			(item, idx) => ({
-				...item,
-				id: pickId(item, idx),
-				dueDate: isRecurrenceActiveOnDate(item.recurrence, today) ? todayIso : undefined
-			})
-		);
+		const prioritize = (items: TaskTemplate[]) =>
+			[...items].sort((a, b) => {
+				const aOverdue = a.isOneOff && a.dueDate && a.dueDate < todayIso;
+				const bOverdue = b.isOneOff && b.dueDate && b.dueDate < todayIso;
+				if (aOverdue && !bOverdue) return -1;
+				if (!aOverdue && bOverdue) return 1;
+				const aPri = Number.isFinite(a.priority) ? (a.priority as number) : -Infinity;
+				const bPri = Number.isFinite(b.priority) ? (b.priority as number) : -Infinity;
+				if (aPri === bPri) return 0;
+				return bPri - aPri;
+			});
+
+		const combined = [...prioritize([...active, ...recurringTemplates]), ...prioritize(inactive)].map((item, idx) => ({
+			...item,
+			id: pickId(item, idx),
+			dueDate: isRecurrenceActiveOnDate(item.recurrence, today) ? todayIso : item.dueDate
+		}));
 
 		// Auto-log skipped entries for yesterday's planned recurring tasks that were not completed.
 		const ensureSkippedForDate = async (targetDate: Date, templates: TaskTemplate[]) => {
