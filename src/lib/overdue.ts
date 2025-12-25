@@ -63,7 +63,7 @@ const hasCompletionOnDate = (
 			matchesTask(entry, taskId, taskName) &&
 			entry.status !== 'pending' &&
 			entry.status !== undefined &&
-			entry.timestamp.slice(0, 10) === targetIso
+			(entry.occurrenceDate ?? entry.timestamp.slice(0, 10)) === targetIso
 	);
 
 const clampDay = (year: number, monthIndex: number, day: number) => {

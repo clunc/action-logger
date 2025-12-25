@@ -5,6 +5,7 @@ export type HistoryEntry = {
 	durationSeconds: number;
 	timestamp: string;
 	status?: 'done' | 'skipped';
+	occurrenceDate?: string;
 };
 
 export type SubtaskEntry = {

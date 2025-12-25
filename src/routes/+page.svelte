@@ -166,7 +166,8 @@
 			subtaskNumber: subtask.subtaskNumber,
 			durationSeconds,
 			timestamp,
-			status
+			status,
+			occurrenceDate: task.dueDate ?? timestamp.slice(0, 10)
 		};
 
 		history = [entry, ...history];

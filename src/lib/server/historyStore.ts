@@ -142,7 +142,11 @@ async function readHistoryJson(): Promise<HistoryEntry[]> {
 							: Number((entry as any).holdNumber) || 0,
 					durationSeconds: Number((entry as any).durationSeconds) || 0,
 					timestamp: String((entry as any).timestamp ?? ''),
-					status: (entry as any).status === 'skipped' ? 'skipped' : 'done'
+					status: (entry as any).status === 'skipped' ? 'skipped' : 'done',
+					occurrenceDate:
+						typeof (entry as any).occurrenceDate === 'string'
+							? (entry as any).occurrenceDate
+							: String((entry as any).timestamp ?? '').slice(0, 10)
 				}))
 			: [];
 	} catch (error) {
@@ -176,7 +180,8 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 		db.close();
 		return (rows as any[]).map((row) => ({
 			...row,
-			status: row.status === 'skipped' ? 'skipped' : 'done'
+			status: row.status === 'skipped' ? 'skipped' : 'done',
+			occurrenceDate: String(row.timestamp ?? '').slice(0, 10)
 		})) as HistoryEntry[];
 	} catch (error) {
 		console.error('historyStore: failed to read history', error);
@@ -187,7 +192,8 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 	const normalized = entries.map<HistoryEntry>((entry) => ({
 		...entry,
-		status: entry.status === 'skipped' ? 'skipped' : 'done'
+		status: entry.status === 'skipped' ? 'skipped' : 'done',
+		occurrenceDate: entry.occurrenceDate ?? entry.timestamp.slice(0, 10)
 	}));
 
 	if (!Database) {
@@ -219,7 +225,8 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 	const normalized = entries.map<HistoryEntry>((entry) => ({
 		...entry,
-		status: entry.status === 'skipped' ? 'skipped' : 'done'
+		status: entry.status === 'skipped' ? 'skipped' : 'done',
+		occurrenceDate: entry.occurrenceDate ?? entry.timestamp.slice(0, 10)
 	}));
 
 	if (!Database) {
