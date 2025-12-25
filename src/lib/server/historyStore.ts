@@ -84,10 +84,12 @@ function ensureHistoryTable(db: any) {
 				subtaskNumber INTEGER NOT NULL,
 				durationSeconds INTEGER NOT NULL,
 				timestamp TEXT NOT NULL,
+				occurrenceDate TEXT,
 				status TEXT NOT NULL DEFAULT 'done',
 				PRIMARY KEY (taskId, task, subtaskNumber, timestamp)
 			)
 		`);
+		db.exec(`UPDATE history SET occurrenceDate = substr(timestamp, 1, 10)`);
 		return;
 	}
 
@@ -96,7 +98,9 @@ function ensureHistoryTable(db: any) {
 	const hasSubtask = columns.some((c) => c.name === 'subtaskNumber');
 	const hasTaskId = columns.some((c) => c.name === 'taskId');
 	const hasStatus = columns.some((c) => c.name === 'status');
-	if (hasTask && hasSubtask && hasTaskId && hasStatus) return;
+	const hasOccurrence = columns.some((c) => c.name === 'occurrenceDate');
+
+	if (hasTask && hasSubtask && hasTaskId && hasStatus && hasOccurrence) return;
 
 	const hasStretch = columns.some((c) => c.name === 'stretch');
 	const hasHold = columns.some((c) => c.name === 'holdNumber');
@@ -109,22 +113,27 @@ function ensureHistoryTable(db: any) {
 			subtaskNumber INTEGER NOT NULL,
 			durationSeconds INTEGER NOT NULL,
 			timestamp TEXT NOT NULL,
+			occurrenceDate TEXT,
 			status TEXT NOT NULL DEFAULT 'done',
 			PRIMARY KEY (taskId, task, subtaskNumber, timestamp)
 		)
 	`);
 	if (hasTask && hasSubtask) {
 		db.exec(`
-			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, status)
-			SELECT NULL, task, subtaskNumber, durationSeconds, timestamp, 'done' FROM history_legacy
+			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, occurrenceDate, status)
+			SELECT NULL, task, subtaskNumber, durationSeconds, timestamp, substr(timestamp, 1, 10), 'done' FROM history_legacy
 		`);
 	} else if (hasStretch && hasHold) {
 		db.exec(`
-			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, status)
-			SELECT NULL, stretch, holdNumber, durationSeconds, timestamp, 'done' FROM history_legacy
+			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, occurrenceDate, status)
+			SELECT NULL, stretch, holdNumber, durationSeconds, timestamp, substr(timestamp, 1, 10), 'done' FROM history_legacy
 		`);
 	}
 	db.exec(`DROP TABLE history_legacy`);
+
+	if (!hasOccurrence) {
+		db.exec(`UPDATE history SET occurrenceDate = substr(timestamp, 1, 10) WHERE occurrenceDate IS NULL OR occurrenceDate = ''`);
+	}
 }
 
 async function readHistoryJson(): Promise<HistoryEntry[]> {
@@ -174,14 +183,17 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 		const db = initDb(paths.dbFile);
 		const rows = db
 			.prepare(
-				`SELECT taskId, task, subtaskNumber, durationSeconds, timestamp, status FROM history ORDER BY datetime(timestamp) DESC`
+				`SELECT taskId, task, subtaskNumber, durationSeconds, timestamp, occurrenceDate, status FROM history ORDER BY datetime(timestamp) DESC`
 			)
 			.all();
 		db.close();
 		return (rows as any[]).map((row) => ({
 			...row,
 			status: row.status === 'skipped' ? 'skipped' : 'done',
-			occurrenceDate: String(row.timestamp ?? '').slice(0, 10)
+			occurrenceDate:
+				typeof row.occurrenceDate === 'string' && row.occurrenceDate
+					? row.occurrenceDate
+					: String(row.timestamp ?? '').slice(0, 10)
 		})) as HistoryEntry[];
 	} catch (error) {
 		console.error('historyStore: failed to read history', error);
@@ -206,7 +218,7 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 		const insert = db.prepare(
-			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, status) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp, @status)`
+			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, occurrenceDate, status) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp, @occurrenceDate, @status)`
 		);
 
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
@@ -238,7 +250,7 @@ export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 		const insert = db.prepare(
-			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, status) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp, @status)`
+			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, occurrenceDate, status) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp, @occurrenceDate, @status)`
 		);
 
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
