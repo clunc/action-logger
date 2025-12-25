@@ -53,6 +53,8 @@
 	let deleteTargetId: number | null = null;
 	let deleteTargetName = '';
 	let allTemplates: TaskTemplate[] = [];
+	const normalizePillarKey = (value: string | undefined | null) =>
+		(value ?? '').toLowerCase().replace(/\s+/g, '_');
 	const isOverdueTemplate = (
 		task: TaskTemplate | SessionTask,
 		hist: HistoryEntry[] = history,
@@ -77,7 +79,7 @@
 		subtaskLabels: [''],
 		pipeline: task.pipeline,
 		pillar: task.pillar,
-		pillarEmoji: task.pillar ? pillarEmojiMap[task.pillar.toLowerCase()] : undefined,
+		pillarEmoji: task.pillar ? pillarEmojiMap[normalizePillarKey(task.pillar)] : undefined,
 		priority: task.priority,
 		recurrence: task.recurrence,
 		type: task.type,
@@ -324,7 +326,7 @@
 		...Object.fromEntries(
 			baseTemplates
 				.filter((task) => task.pillar && task.pillarEmoji)
-				.map((task) => [task.pillar?.toLowerCase() ?? '', task.pillarEmoji as string])
+				.map((task) => [normalizePillarKey(task.pillar), task.pillarEmoji as string])
 		)
 	};
 	$: oneOffTemplates = oneOffs.map<TaskTemplate>((task) => ({
@@ -333,7 +335,7 @@
 		defaultDurationSeconds: 0,
 		subtaskLabels: [''],
 		pillar: task.pillar,
-		pillarEmoji: task.pillar ? pillarEmojiMap[task.pillar.toLowerCase()] : undefined,
+		pillarEmoji: task.pillar ? pillarEmojiMap[normalizePillarKey(task.pillar)] : undefined,
 		priority: task.priority,
 		recurrence: { frequency: 'daily' as const },
 		isOneOff: true,

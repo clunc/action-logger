@@ -96,7 +96,15 @@ export async function loadPillarEmojiMap(): Promise<{ map: PillarEmojiMap; versi
 		map[key.toLowerCase()] = (emoji as string).trim();
 	}
 
-	return { map: { ...DEFAULT_PILLAR_EMOJIS, ...map }, version };
+	const merged = { ...DEFAULT_PILLAR_EMOJIS, ...map };
+	const withAliases = Object.entries(merged).reduce((acc, [key, value]) => {
+		acc[key] = value;
+		const spaced = key.replace(/_/g, ' ');
+		acc[spaced] = value;
+		return acc;
+	}, {} as PillarEmojiMap);
+
+	return { map: withAliases, version };
 }
 
 function normalizeLabels(labels: unknown): string[] | undefined {
