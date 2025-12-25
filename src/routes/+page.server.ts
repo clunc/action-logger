@@ -2,8 +2,9 @@ import type { PageServerLoad } from './$types';
 import { loadTaskTemplate } from '$lib/server/taskConfig';
 import { listOneOffs } from '$lib/server/oneOffStore';
 import { listRecurringTasks } from '$lib/server/recurringStore';
-import type { OneOffTask, RecurringTask, TaskTemplate } from '$lib/types';
-import { isRecurrenceActiveToday } from '$lib/recurrence';
+import { appendHistory, readHistory } from '$lib/server/historyStore';
+import type { HistoryEntry, OneOffTask, RecurringTask, TaskTemplate } from '$lib/types';
+import { isRecurrenceActiveOnDate, isRecurrenceActiveToday } from '$lib/recurrence';
 
 const slugify = (value: string) =>
 	value
@@ -14,6 +15,11 @@ const slugify = (value: string) =>
 
 export const load: PageServerLoad = async () => {
 	try {
+		const today = new Date();
+		const todayIso = today.toISOString().slice(0, 10);
+		const yesterday = new Date(today);
+		yesterday.setDate(yesterday.getDate() - 1);
+
 		const { template, version } = await loadTaskTemplate();
 		const recurring = await listRecurringTasks();
 		const oneOffs = await listOneOffs();
@@ -58,9 +64,48 @@ export const load: PageServerLoad = async () => {
 		const combined = [...sortByPriority([...active, ...recurringTemplates]), ...sortByPriority(inactive)].map(
 			(item, idx) => ({
 				...item,
-				id: pickId(item, idx)
+				id: pickId(item, idx),
+				dueDate: isRecurrenceActiveOnDate(item.recurrence, today) ? todayIso : undefined
 			})
 		);
+
+		// Auto-log skipped entries for yesterday's planned recurring tasks that were not completed.
+		const ensureSkippedForDate = async (targetDate: Date, templates: TaskTemplate[]) => {
+			const dateString = targetDate.toDateString();
+			const history = await readHistory();
+			const planned = templates.filter((item) => isRecurrenceActiveOnDate(item.recurrence, targetDate));
+			const toAppend: HistoryEntry[] = [];
+
+			for (const task of planned) {
+				const subtasks = Math.max(1, task.subtaskLabels?.length ?? 1);
+				for (let i = 1; i <= subtasks; i++) {
+					const existing = history.find(
+						(h) =>
+							h.subtaskNumber === i &&
+							new Date(h.timestamp).toDateString() === dateString &&
+							(task.id ? h.taskId === task.id : h.task === task.name)
+					);
+					if (existing) continue;
+
+					const ts = new Date(targetDate);
+					ts.setHours(23, 59, 59, 0);
+					toAppend.push({
+						taskId: task.id,
+						task: task.name,
+						subtaskNumber: i,
+						durationSeconds: 0,
+						timestamp: ts.toISOString(),
+						status: 'skipped'
+					});
+				}
+			}
+
+			if (toAppend.length) {
+				await appendHistory(toAppend);
+			}
+		};
+
+		await ensureSkippedForDate(yesterday, combined);
 
 		return {
 			taskTemplate: combined,
