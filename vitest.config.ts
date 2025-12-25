@@ -7,5 +7,8 @@ export default defineConfig({
 		globals: true,
 		environment: 'jsdom',
 		include: ['src/**/*.{test,spec}.{js,ts}']
+	},
+	resolve: {
+		conditions: ['browser', 'module', 'import']
 	}
 });
