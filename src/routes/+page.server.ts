@@ -83,7 +83,9 @@ export const load: PageServerLoad = async () => {
 		const ensureSkippedForDate = async (targetDate: Date, templates: TaskTemplate[]) => {
 			const dateString = targetDate.toDateString();
 			const history = await readHistory();
-			const planned = templates.filter((item) => isRecurrenceActiveOnDate(item.recurrence, targetDate));
+			const planned = templates.filter(
+				(item) => !item.isOneOff && isRecurrenceActiveOnDate(item.recurrence, targetDate)
+			);
 			const toAppend: HistoryEntry[] = [];
 
 			for (const task of planned) {
@@ -98,7 +100,7 @@ export const load: PageServerLoad = async () => {
 					if (existing) continue;
 
 					const ts = new Date(targetDate);
-					ts.setHours(23, 59, 59, 0);
+					ts.setHours(12, 0, 0, 0); // midday to keep date stable across zones
 					toAppend.push({
 						taskId: task.id,
 						task: task.name,
