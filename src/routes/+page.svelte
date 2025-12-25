@@ -8,6 +8,7 @@
 	import { createSession, todayString } from '$lib/tasks';
 	import type { HistoryEntry, SessionTask, TaskTemplate, OneOffTask, RecurringTask } from '$lib/types';
 	import { isOverdueOneOff, isOverdueRecurring } from '$lib/overdue';
+	import { sortTemplatesByOverdue } from '$lib/taskSorting';
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
 
@@ -70,6 +71,8 @@
 		const emoji = task.pillar ? pillarEmojiMap[key] ?? task.pillarEmoji : task.pillarEmoji;
 		return { ...task, pillar: label, pillarEmoji: emoji };
 	};
+	const isOverdueWrapper = (task: TaskTemplate, hist: HistoryEntry[], isReady: boolean) =>
+		isOverdueTemplate(task, hist, isReady);
 	const isOverdueTemplate = (
 		task: TaskTemplate | SessionTask,
 		hist: HistoryEntry[] = history,
@@ -358,27 +361,12 @@
 			dueDate: task.scheduled_for
 		})
 	);
-	const sortTemplates = (
-		items: TaskTemplate[],
-		hist: HistoryEntry[] = history,
-		isReady = ready
-	) => {
-		const priorityValue = (task: TaskTemplate) =>
-			Number.isFinite(task.priority) ? (task.priority as number) : -Infinity;
-		return [...items].sort((a, b) => {
-			const aOverdue = isOverdueTemplate(a, hist, isReady);
-			const bOverdue = isOverdueTemplate(b, hist, isReady);
-			if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
-			const aPri = priorityValue(a);
-			const bPri = priorityValue(b);
-			if (aPri !== bPri) return bPri - aPri;
-			if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) {
-				return a.dueDate.localeCompare(b.dueDate);
-			}
-			return (a.name || '').localeCompare(b.name || '');
-		});
-	};
-	$: allTemplates = sortTemplates([...baseTemplates, ...oneOffTemplates], history, ready);
+	$: allTemplates = sortTemplatesByOverdue(
+		[...baseTemplates, ...oneOffTemplates],
+		history,
+		ready,
+		isOverdueWrapper
+	);
 	$: oneOffRecurrenceLabels = Object.fromEntries(
 		oneOffs.map((task) => {
 			const key = `oneoff-${task.id}`;
