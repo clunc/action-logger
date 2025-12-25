@@ -55,6 +55,14 @@
 	let allTemplates: TaskTemplate[] = [];
 	const normalizePillarKey = (value: string | undefined | null) =>
 		(value ?? '').toLowerCase().replace(/\s+/g, '_');
+	const formatPillarLabel = (value: string | undefined | null) => {
+		if (!value) return value ?? '';
+		return value
+			.split(/[\s_]+/)
+			.filter(Boolean)
+			.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+			.join(' ');
+	};
 	const isOverdueTemplate = (
 		task: TaskTemplate | SessionTask,
 		hist: HistoryEntry[] = history,
@@ -78,7 +86,7 @@
 		defaultDurationSeconds: 0,
 		subtaskLabels: [''],
 		pipeline: task.pipeline,
-		pillar: task.pillar,
+		pillar: formatPillarLabel(task.pillar),
 		pillarEmoji: task.pillar ? pillarEmojiMap[normalizePillarKey(task.pillar)] : undefined,
 		priority: task.priority,
 		recurrence: task.recurrence,
@@ -334,7 +342,7 @@
 		name: task.title,
 		defaultDurationSeconds: 0,
 		subtaskLabels: [''],
-		pillar: task.pillar,
+		pillar: formatPillarLabel(task.pillar),
 		pillarEmoji: task.pillar ? pillarEmojiMap[normalizePillarKey(task.pillar)] : undefined,
 		priority: task.priority,
 		recurrence: { frequency: 'daily' as const },
