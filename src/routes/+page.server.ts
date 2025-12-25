@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { loadTaskTemplate } from '$lib/server/taskConfig';
+import { loadPillarEmojiMap, loadTaskTemplate } from '$lib/server/taskConfig';
 import { listOneOffs } from '$lib/server/oneOffStore';
 import { listRecurringTasks } from '$lib/server/recurringStore';
 import { createOneOff } from '$lib/server/oneOffStore';
@@ -22,6 +22,7 @@ export const load: PageServerLoad = async () => {
 		const today = new Date();
 		const todayIso = today.toISOString().slice(0, 10);
 		let { template, version } = await loadTaskTemplate();
+		const { map: pillarEmojiMap } = await loadPillarEmojiMap();
 		let recurring = await listRecurringTasks();
 		let oneOffs = await listOneOffs();
 		const active = template.filter((item) => isRecurrenceActiveToday(item.recurrence));
@@ -116,7 +117,8 @@ export const load: PageServerLoad = async () => {
 			taskTemplate: combined,
 			templateVersion: version,
 			oneOffs: oneOffs as OneOffTask[],
-			recurringTasks: recurring as RecurringTask[]
+			recurringTasks: recurring as RecurringTask[],
+			pillarEmojiMap
 		};
 	} catch (error) {
 		console.error('Failed to load task template, using fallback', error);
@@ -125,7 +127,8 @@ export const load: PageServerLoad = async () => {
 			taskTemplate: fallback,
 			templateVersion: Date.now(),
 			oneOffs: [] as OneOffTask[],
-			recurringTasks: [] as RecurringTask[]
+			recurringTasks: [] as RecurringTask[],
+			pillarEmojiMap: {}
 		};
 	}
 };

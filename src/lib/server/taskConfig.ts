@@ -46,7 +46,7 @@ async function ensurePillarsExample() {
 		);
 }
 
-async function loadPillarEmojiMap(): Promise<{ map: PillarEmojiMap; version: number | null }> {
+export async function loadPillarEmojiMap(): Promise<{ map: PillarEmojiMap; version: number | null }> {
 	await fs.mkdir(DATA_DIR, { recursive: true });
 	await ensurePillarsExample();
 

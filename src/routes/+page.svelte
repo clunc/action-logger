@@ -22,6 +22,10 @@
 	let oneOffs: OneOffTask[] = data.oneOffs ?? [];
 	let recurringTasks: RecurringTask[] = data.recurringTasks ?? [];
 	let baseTemplates: TaskTemplate[] = [...data.taskTemplate];
+	const serverPillarEmojiMap = Object.fromEntries(
+		Object.entries((data as any).pillarEmojiMap ?? {}).map(([k, v]) => [k.toLowerCase(), v as string])
+	);
+	let pillarEmojiMap: Record<string, string> = { ...serverPillarEmojiMap };
 	let createError = '';
 	let creating = false;
 	let newOneOff = {
@@ -314,11 +318,14 @@
 	$: streakInfo = calculateStreak(history);
 	$: streakDays = streakInfo.count;
 	$: streakHasToday = streakInfo.hasToday;
-	$: pillarEmojiMap = Object.fromEntries(
-		baseTemplates
-			.filter((task) => task.pillar && task.pillarEmoji)
-			.map((task) => [task.pillar?.toLowerCase() ?? '', task.pillarEmoji])
-	);
+	$: pillarEmojiMap = {
+		...serverPillarEmojiMap,
+		...Object.fromEntries(
+			baseTemplates
+				.filter((task) => task.pillar && task.pillarEmoji)
+				.map((task) => [task.pillar?.toLowerCase() ?? '', task.pillarEmoji as string])
+		)
+	};
 	$: oneOffTemplates = oneOffs.map<TaskTemplate>((task) => ({
 		id: `oneoff-${task.id}`,
 		name: task.title,
