@@ -6,7 +6,8 @@ export default defineConfig({
 	test: {
 		globals: true,
 		environment: 'jsdom',
-		include: ['src/**/*.{test,spec}.{js,ts}']
+		include: ['src/**/*.{test,spec}.{js,ts}'],
+		exclude: ['src/routes/**/+*.*'] // SvelteKit route files use + prefix; keep tests outside those filenames
 	},
 	resolve: {
 		conditions: ['browser', 'module', 'import']
