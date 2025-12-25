@@ -77,6 +77,7 @@
 		subtaskLabels: [''],
 		pipeline: task.pipeline,
 		pillar: task.pillar,
+		pillarEmoji: task.pillar ? pillarEmojiMap[task.pillar.toLowerCase()] : undefined,
 		priority: task.priority,
 		recurrence: task.recurrence,
 		type: task.type,
