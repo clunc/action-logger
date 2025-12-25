@@ -19,7 +19,8 @@
   ],
   "remoteUser": "vscode",
   "containerEnv": {
-    "SSH_AUTH_SOCK": "/ssh-agent"
+    "SSH_AUTH_SOCK": "/ssh-agent",
+    "APP_ENV": "dev"
   },
   "forwardPorts": [
     5173,
@@ -63,5 +64,5 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "postCreateCommand": "bash -lc \"mkdir -p ~/.claude && claude --version && mkdir -p ~/.codex && codex --version && npm install\"",
-  "postAttachCommand": "npm run dev:host"
+  "postAttachCommand": "APP_ENV=dev npm run dev:host"
 }
