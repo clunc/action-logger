@@ -1,13 +1,11 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { OneOffTask, OneOffTaskTemplate, TaskCategory } from '$lib/types';
-
-const DEFAULT_DATA_DIR = path.join(process.cwd(), 'data');
-const FALLBACK_DATA_DIR = path.join(process.cwd(), '.data-fallback');
+import { DEFAULT_DATA_DIR, FALLBACK_DATA_DIR } from '$lib/env';
 const JSON_FILE = path.join(FALLBACK_DATA_DIR, 'one_offs.json');
 
 let Database: any = null;
-let sqliteLoadError: unknown = null;
+	let sqliteLoadError: unknown = null;
 
 (async () => {
 	try {

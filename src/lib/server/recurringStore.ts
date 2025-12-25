@@ -1,9 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { RecurrenceRule, RecurringTask, RecurringTaskTemplate, TaskCategory, WeekdayAbbrev } from '$lib/types';
-
-const DEFAULT_DATA_DIR = path.join(process.cwd(), 'data');
-const FALLBACK_DATA_DIR = path.join(process.cwd(), '.data-fallback');
+import { DEFAULT_DATA_DIR, FALLBACK_DATA_DIR } from '$lib/env';
 const JSON_FILE = path.join(FALLBACK_DATA_DIR, 'recurring.json');
 
 let Database: any = null;

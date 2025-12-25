@@ -1,9 +1,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { HistoryEntry } from '$lib/types';
+import { DEFAULT_DATA_DIR, FALLBACK_DATA_DIR } from '$lib/env';
 
-const DEFAULT_DATA_DIR = path.join(process.cwd(), 'data');
-const FALLBACK_DATA_DIR = path.join(process.cwd(), '.data-fallback');
 const JSON_FILE = path.join(FALLBACK_DATA_DIR, 'history.json');
 
 let Database: any = null;

@@ -2,8 +2,9 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
 import type { PillarEmojiMap, TaskTemplate, WeekdayAbbrev, RecurrenceRule } from '$lib/types';
+import { DEFAULT_DATA_DIR } from '$lib/env';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_DIR = DEFAULT_DATA_DIR;
 const TODOS_FILE = path.join(DATA_DIR, 'todos.yaml');
 const STRETCHES_FILE = path.join(DATA_DIR, 'stretches.yaml'); // kept for backward compatibility
 const PILLARS_FILE = path.join(DATA_DIR, 'pillars.yaml');

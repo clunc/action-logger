@@ -2,9 +2,13 @@ import type { PageServerLoad } from './$types';
 import { loadTaskTemplate } from '$lib/server/taskConfig';
 import { listOneOffs } from '$lib/server/oneOffStore';
 import { listRecurringTasks } from '$lib/server/recurringStore';
-import { readHistory, replaceHistory } from '$lib/server/historyStore';
+import { createOneOff } from '$lib/server/oneOffStore';
+import { createRecurringTask } from '$lib/server/recurringStore';
+import { readHistory, replaceHistory, appendHistory } from '$lib/server/historyStore';
 import type { OneOffTask, RecurringTask, TaskTemplate } from '$lib/types';
 import { isRecurrenceActiveOnDate, isRecurrenceActiveToday } from '$lib/recurrence';
+import { isDevEnv } from '$lib/env';
+import { seededHistory, seededOneOffs, seededRecurring, seededTemplates } from '$lib/devSeed';
 
 const slugify = (value: string) =>
 	value
@@ -17,9 +21,9 @@ export const load: PageServerLoad = async () => {
 	try {
 		const today = new Date();
 		const todayIso = today.toISOString().slice(0, 10);
-		const { template, version } = await loadTaskTemplate();
-		const recurring = await listRecurringTasks();
-		const oneOffs = await listOneOffs();
+		let { template, version } = await loadTaskTemplate();
+		let recurring = await listRecurringTasks();
+		let oneOffs = await listOneOffs();
 		const active = template.filter((item) => isRecurrenceActiveToday(item.recurrence));
 		const inactive = template.filter((item) => !isRecurrenceActiveToday(item.recurrence));
 
@@ -90,6 +94,22 @@ export const load: PageServerLoad = async () => {
 		});
 		if (cleanedHistory.length !== history.length) {
 			await replaceHistory(cleanedHistory);
+		}
+
+		// Dev seed to quickly test business logic without touching prod data.
+		if (isDevEnv) {
+			if (!template.length) {
+				template = seededTemplates();
+			}
+			if (!recurring.length) {
+				recurring = await Promise.all(seededRecurring().map((r) => createRecurringTask(r)));
+			}
+			if (!oneOffs.length) {
+				oneOffs = await Promise.all(seededOneOffs(todayIso).map((o) => createOneOff(o)));
+			}
+			if (!history.length) {
+				await appendHistory(seededHistory(todayIso));
+			}
 		}
 
 		return {
