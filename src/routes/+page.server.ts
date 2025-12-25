@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { loadTaskTemplate } from '$lib/server/taskConfig';
 import { listOneOffs } from '$lib/server/oneOffStore';
 import { listRecurringTasks } from '$lib/server/recurringStore';
+import { readHistory, replaceHistory } from '$lib/server/historyStore';
 import type { OneOffTask, RecurringTask, TaskTemplate } from '$lib/types';
 import { isRecurrenceActiveOnDate, isRecurrenceActiveToday } from '$lib/recurrence';
 
@@ -74,6 +75,22 @@ export const load: PageServerLoad = async () => {
 			id: pickId(item, idx),
 			dueDate: isRecurrenceActiveOnDate(item.recurrence, today) ? todayIso : item.dueDate
 		}));
+
+		// Cleanup: remove any auto-added skipped entries from earlier builds for today's date (midnight timestamps).
+		const history = await readHistory();
+		const cleanedHistory = history.filter((entry) => {
+			if (entry.status !== 'skipped') return true;
+			const ts = new Date(entry.timestamp);
+			if (ts.toDateString() !== today.toDateString()) return true;
+			// Assume auto-skips were created near midnight with zero duration; keep user-created skips later in the day.
+			if (entry.durationSeconds === 0 && ts.getHours() < 2) {
+				return false;
+			}
+			return true;
+		});
+		if (cleanedHistory.length !== history.length) {
+			await replaceHistory(cleanedHistory);
+		}
 
 		return {
 			taskTemplate: combined,
