@@ -310,7 +310,8 @@
 		priority: task.priority,
 		recurrence: { frequency: 'daily' as const },
 		isOneOff: true,
-		oneOffId: task.id
+		oneOffId: task.id,
+		dueDate: task.scheduled_for
 	}));
 	$: allTemplates = [...baseTemplates, ...oneOffTemplates];
 	$: oneOffRecurrenceLabels = Object.fromEntries(
@@ -331,6 +332,11 @@
 		}
 		return acc;
 	}, {} as Record<string, string[] | undefined>);
+	const isOverdueOneOff = (task: TaskTemplate | SessionTask) => {
+		if (!task.isOneOff || !task.dueDate) return false;
+		const todayIso = new Date().toISOString().slice(0, 10);
+		return task.dueDate < todayIso;
+	};
 	$: recurrenceLabels = allTemplates.reduce((acc, task) => {
 		const key = templateKey(task);
 		acc[key] = oneOffRecurrenceLabels[key] ?? formatRecurrence(task.recurrence);
@@ -534,7 +540,8 @@
 				priority: task.priority,
 				recurrence: { frequency: 'daily' as const },
 				isOneOff: true,
-				oneOffId: task.id
+				oneOffId: task.id,
+				dueDate: task.scheduled_for
 			}))
 		];
 
@@ -658,14 +665,15 @@
 				task={task}
 				taskIdx={taskIdx}
 				recurrenceLabel={recurrenceLabels[templateKey(task)] ?? 'Recurring'}
-				pillarLabel={task.pillar}
-				pillarEmoji={task.pillarEmoji}
-				onLogSubtask={handleSubtaskAction}
-				onUndoSubtask={undoSubtask}
-				onSkipSubtask={(idx, subIdx) => handleSubtaskAction(idx, subIdx, 'skipped')}
-				onDelete={task.oneOffId ? () => openDeleteModal(task.oneOffId as number, task.name) : null}
-			/>
-		{/each}
+					pillarLabel={task.pillar}
+					pillarEmoji={task.pillarEmoji}
+					onLogSubtask={handleSubtaskAction}
+					onUndoSubtask={undoSubtask}
+					onSkipSubtask={(idx, subIdx) => handleSubtaskAction(idx, subIdx, 'skipped')}
+					showSkip={isOverdueOneOff(task)}
+					onDelete={task.oneOffId ? () => openDeleteModal(task.oneOffId as number, task.name) : null}
+				/>
+			{/each}
 
 			<HistoryList entries={todaysHistory} subtaskLabelsMap={subtaskLabelsMap} />
 		</div>

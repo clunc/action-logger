@@ -32,6 +32,7 @@ export type SessionTask = {
 	recurrence?: RecurrenceRule;
 	isOneOff?: boolean;
 	oneOffId?: number;
+	dueDate?: string;
 };
 
 export type TaskTemplate = {
@@ -50,6 +51,7 @@ export type TaskTemplate = {
 	recurrence?: RecurrenceRule;
 	isOneOff?: boolean;
 	oneOffId?: number;
+	dueDate?: string;
 };
 
 export type PillarEmojiMap = Record<string, string>;

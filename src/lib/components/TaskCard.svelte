@@ -10,6 +10,7 @@
 	export let pillarEmoji: string | undefined = undefined;
 	export let onDelete: (() => void) | null = null;
 	export let onSkipSubtask: (taskIdx: number, subtaskIdx: number) => void;
+	export let showSkip: boolean = false;
 
 	$: isPicked = task.subtasks.some((subtask) => subtask.completed);
 	$: recurrenceIcon = recurrenceLabel.startsWith('One-off') ? '📌' : '🔁';
@@ -54,17 +55,19 @@
 						>
 							{subtask.status === 'done' ? '✕' : '✓'}
 						</button>
-						<button
-							class={`skip-btn ${subtask.status === 'skipped' ? 'on' : ''}`}
-							type="button"
-							aria-label={subtask.status === 'skipped' ? 'Undo skip' : 'Skip action'}
-							on:click={() =>
-								subtask.status === 'skipped'
-									? onUndoSubtask(taskIdx, subtaskIdx)
-									: onSkipSubtask(taskIdx, subtaskIdx)}
-						>
-							{subtask.status === 'skipped' ? '↺' : '⇥'}
-						</button>
+						{#if showSkip}
+							<button
+								class={`skip-btn ${subtask.status === 'skipped' ? 'on' : ''}`}
+								type="button"
+								aria-label={subtask.status === 'skipped' ? 'Undo skip' : 'Skip action'}
+								on:click={() =>
+									subtask.status === 'skipped'
+										? onUndoSubtask(taskIdx, subtaskIdx)
+										: onSkipSubtask(taskIdx, subtaskIdx)}
+							>
+								{subtask.status === 'skipped' ? '↺' : '⇥'}
+							</button>
+						{/if}
 					</div>
 				{/each}
 			</div>
