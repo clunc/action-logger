@@ -7,6 +7,7 @@
 	import { createRecurringClient } from '$lib/api/recurring';
 	import { createSession, todayString } from '$lib/tasks';
 	import type { HistoryEntry, SessionTask, TaskTemplate, OneOffTask, RecurringTask } from '$lib/types';
+	import { isOverdueOneOff, isOverdueRecurring } from '$lib/overdue';
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
 
@@ -332,10 +333,19 @@
 		}
 		return acc;
 	}, {} as Record<string, string[] | undefined>);
-	const isOverdueOneOff = (task: TaskTemplate | SessionTask) => {
-		if (!task.isOneOff || !task.dueDate) return false;
-		const todayIso = new Date().toISOString().slice(0, 10);
-		return task.dueDate < todayIso;
+	const shouldShowSkip = (task: TaskTemplate | SessionTask) => {
+		if (task.isOneOff) {
+			return isOverdueOneOff(task.dueDate);
+		}
+		if (task.recurrence) {
+			return isOverdueRecurring({
+				recurrence: task.recurrence,
+				history,
+				taskId: task.id,
+				taskName: task.name
+			});
+		}
+		return false;
 	};
 	$: recurrenceLabels = allTemplates.reduce((acc, task) => {
 		const key = templateKey(task);
@@ -670,7 +680,7 @@
 					onLogSubtask={handleSubtaskAction}
 					onUndoSubtask={undoSubtask}
 					onSkipSubtask={(idx, subIdx) => handleSubtaskAction(idx, subIdx, 'skipped')}
-					showSkip={isOverdueOneOff(task)}
+					showSkip={shouldShowSkip(task)}
 					onDelete={task.oneOffId ? () => openDeleteModal(task.oneOffId as number, task.name) : null}
 				/>
 			{/each}
