@@ -1,0 +1,20 @@
+- name: Plan the day
+  defaultDurationSeconds: 300
+  pillar: Planning
+  pillarEmoji: 🧭
+- name: Inbox triage
+  defaultDurationSeconds: 600
+  pillar: Operations
+  pillarEmoji: 🛠️
+- name: Deep work block
+  defaultDurationSeconds: 1500
+  pillar: Focus
+  pillarEmoji: 🎯
+- name: Walk and reset
+  defaultDurationSeconds: 600
+  pillar: Recovery
+  pillarEmoji: 🌿
+- name: Shutdown routine
+  defaultDurationSeconds: 420
+  pillar: Planning
+  pillarEmoji: 🧭

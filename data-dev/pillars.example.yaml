@@ -1,0 +1,16 @@
+# Map pillar names to emojis. Keys are case-insensitive.
+pillars:
+  planning: "🧭"
+  operations: "🛠️"
+  focus: "🎯"
+  recovery: "🌿"
+  physical_health: "💪"
+  mental_clarity: "🧠"
+  purpose: "✨"
+  stability: "💼"
+  mobility: "🤸"
+  career: "💼"
+  finances: "💰"
+  health: "💪"
+  learning: "📚"
+  relationships: "❤️"
