@@ -42,20 +42,24 @@ describe('isOverdueRecurring', () => {
 	});
 
 	it('only clears weekly when the most recent scheduled day is completed', () => {
-		const recurrence: RecurrenceRule = { frequency: 'weekly', days: ['Mon', 'Wed', 'Fri'] };
-		// Thu 2025-12-25 evening -> most recent scheduled day is Wed 2025-12-24
-		const now = makeDate('2025-12-25');
-		now.setUTCHours(20);
-		const doneOnMonday = [historyEntry('2025-12-22', 'weekly')];
-		const doneOnWednesday = [historyEntry('2025-12-24', 'weekly')];
+	const recurrence: RecurrenceRule = { frequency: 'weekly', days: ['Mon', 'Wed', 'Fri'] };
+	// Thu 2025-12-25 evening -> most recent scheduled day is Wed 2025-12-24
+	const now = makeDate('2025-12-25');
+	now.setUTCHours(20);
+	const doneOnMonday = [historyEntry('2025-12-22', 'weekly')];
+	const doneOnWednesday = [historyEntry('2025-12-24', 'weekly')];
+	const doneOnOldFriday = [historyEntry('2025-12-19', 'weekly')];
 
 		expect(
 			isOverdueRecurring({ recurrence, history: doneOnMonday, taskId: 'weekly', taskName: 'weekly', now })
 		).toBe(true);
-		expect(
-			isOverdueRecurring({ recurrence, history: doneOnWednesday, taskId: 'weekly', taskName: 'weekly', now })
-		).toBe(false);
-	});
+	expect(
+		isOverdueRecurring({ recurrence, history: doneOnWednesday, taskId: 'weekly', taskName: 'weekly', now })
+	).toBe(false);
+	expect(
+		isOverdueRecurring({ recurrence, history: doneOnOldFriday, taskId: 'weekly', taskName: 'weekly', now })
+	).toBe(true);
+});
 
 	it('applies grace/visibility windows for monthly', () => {
 		const recurrence: RecurrenceRule = { frequency: 'monthly', day_of_month: 20 };
