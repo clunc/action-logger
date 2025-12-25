@@ -30,8 +30,9 @@ export function createSession(template: TaskTemplate[], history: HistoryEntry[])
 				return {
 					subtaskNumber,
 					durationSeconds: todaysLog.durationSeconds,
-					completed: true,
-					timestamp: todaysLog.timestamp
+					completed: todaysLog.status === 'skipped' ? false : true,
+					timestamp: todaysLog.timestamp,
+					status: todaysLog.status ?? 'done'
 				};
 			}
 
@@ -39,7 +40,8 @@ export function createSession(template: TaskTemplate[], history: HistoryEntry[])
 				subtaskNumber,
 				durationSeconds: 0,
 				completed: false,
-				timestamp: null
+				timestamp: null,
+				status: 'pending'
 			};
 		});
 

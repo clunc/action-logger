@@ -85,6 +85,7 @@ function ensureHistoryTable(db: any) {
 				subtaskNumber INTEGER NOT NULL,
 				durationSeconds INTEGER NOT NULL,
 				timestamp TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'done',
 				PRIMARY KEY (taskId, task, subtaskNumber, timestamp)
 			)
 		`);
@@ -95,7 +96,8 @@ function ensureHistoryTable(db: any) {
 	const hasTask = columns.some((c) => c.name === 'task');
 	const hasSubtask = columns.some((c) => c.name === 'subtaskNumber');
 	const hasTaskId = columns.some((c) => c.name === 'taskId');
-	if (hasTask && hasSubtask && hasTaskId) return;
+	const hasStatus = columns.some((c) => c.name === 'status');
+	if (hasTask && hasSubtask && hasTaskId && hasStatus) return;
 
 	const hasStretch = columns.some((c) => c.name === 'stretch');
 	const hasHold = columns.some((c) => c.name === 'holdNumber');
@@ -108,18 +110,19 @@ function ensureHistoryTable(db: any) {
 			subtaskNumber INTEGER NOT NULL,
 			durationSeconds INTEGER NOT NULL,
 			timestamp TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'done',
 			PRIMARY KEY (taskId, task, subtaskNumber, timestamp)
 		)
 	`);
 	if (hasTask && hasSubtask) {
 		db.exec(`
-			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp)
-			SELECT NULL, task, subtaskNumber, durationSeconds, timestamp FROM history_legacy
+			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, status)
+			SELECT NULL, task, subtaskNumber, durationSeconds, timestamp, 'done' FROM history_legacy
 		`);
 	} else if (hasStretch && hasHold) {
 		db.exec(`
-			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp)
-			SELECT NULL, stretch, holdNumber, durationSeconds, timestamp FROM history_legacy
+			INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, status)
+			SELECT NULL, stretch, holdNumber, durationSeconds, timestamp, 'done' FROM history_legacy
 		`);
 	}
 	db.exec(`DROP TABLE history_legacy`);
@@ -139,7 +142,8 @@ async function readHistoryJson(): Promise<HistoryEntry[]> {
 							? (entry as any).subtaskNumber
 							: Number((entry as any).holdNumber) || 0,
 					durationSeconds: Number((entry as any).durationSeconds) || 0,
-					timestamp: String((entry as any).timestamp ?? '')
+					timestamp: String((entry as any).timestamp ?? ''),
+					status: (entry as any).status === 'skipped' ? 'skipped' : 'done'
 				}))
 			: [];
 	} catch (error) {
@@ -167,11 +171,14 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 		const db = initDb(paths.dbFile);
 		const rows = db
 			.prepare(
-				`SELECT taskId, task, subtaskNumber, durationSeconds, timestamp FROM history ORDER BY datetime(timestamp) DESC`
+				`SELECT taskId, task, subtaskNumber, durationSeconds, timestamp, status FROM history ORDER BY datetime(timestamp) DESC`
 			)
 			.all();
 		db.close();
-		return rows as HistoryEntry[];
+		return (rows as any[]).map((row) => ({
+			...row,
+			status: row.status === 'skipped' ? 'skipped' : 'done'
+		})) as HistoryEntry[];
 	} catch (error) {
 		console.error('historyStore: failed to read history', error);
 		return readHistoryJson();
@@ -179,9 +186,14 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 }
 
 export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
+	const normalized = entries.map<HistoryEntry>((entry) => ({
+		...entry,
+		status: entry.status === 'skipped' ? 'skipped' : 'done'
+	}));
+
 	if (!Database) {
 		const current = await readHistoryJson();
-		await writeHistoryJson([...entries, ...current]);
+		await writeHistoryJson([...normalized, ...current]);
 		return;
 	}
 
@@ -189,7 +201,7 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 		const insert = db.prepare(
-			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp)`
+			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, status) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp, @status)`
 		);
 
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
@@ -198,7 +210,7 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 			}
 		});
 
-		transaction(entries);
+		transaction(normalized);
 		db.close();
 	} catch (error) {
 		console.error('historyStore: failed to append history', error);
@@ -206,8 +218,13 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 }
 
 export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
+	const normalized = entries.map<HistoryEntry>((entry) => ({
+		...entry,
+		status: entry.status === 'skipped' ? 'skipped' : 'done'
+	}));
+
 	if (!Database) {
-		await writeHistoryJson(entries);
+		await writeHistoryJson(normalized);
 		return;
 	}
 
@@ -215,7 +232,7 @@ export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 		const paths = await ensureDbFile();
 		const db = initDb(paths.dbFile);
 		const insert = db.prepare(
-			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp)`
+			`INSERT INTO history (taskId, task, subtaskNumber, durationSeconds, timestamp, status) VALUES (@taskId, @task, @subtaskNumber, @durationSeconds, @timestamp, @status)`
 		);
 
 		const transaction = db.transaction((toInsert: HistoryEntry[]) => {
@@ -225,7 +242,7 @@ export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 			}
 		});
 
-		transaction(entries);
+		transaction(normalized);
 		db.close();
 	} catch (error) {
 		console.error('historyStore: failed to replace history', error);

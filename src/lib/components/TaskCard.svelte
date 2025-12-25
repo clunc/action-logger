@@ -3,12 +3,13 @@
 
 	export let task: SessionTask;
 	export let taskIdx: number;
-	export let onLogSubtask: (taskIdx: number, subtaskIdx: number) => void;
+	export let onLogSubtask: (taskIdx: number, subtaskIdx: number, status?: 'done' | 'skipped') => void;
 	export let onUndoSubtask: (taskIdx: number, subtaskIdx: number) => void;
-export let recurrenceLabel: string = 'Daily';
-export let pillarLabel: string | undefined = undefined;
-export let pillarEmoji: string | undefined = undefined;
-export let onDelete: (() => void) | null = null;
+	export let recurrenceLabel: string = 'Daily';
+	export let pillarLabel: string | undefined = undefined;
+	export let pillarEmoji: string | undefined = undefined;
+	export let onDelete: (() => void) | null = null;
+	export let onSkipSubtask: (taskIdx: number, subtaskIdx: number) => void;
 
 	$: isPicked = task.subtasks.some((subtask) => subtask.completed);
 	$: recurrenceIcon = recurrenceLabel.startsWith('One-off') ? '📌' : '🔁';
@@ -41,17 +42,30 @@ export let onDelete: (() => void) | null = null;
 			<div class="title-text">{task.name}</div>
 			<div class="card-actions">
 				{#each task.subtasks as subtask, subtaskIdx}
-					<button
-						class={`check-btn ${subtask.completed ? 'done' : ''}`}
-						aria-label={subtask.completed ? 'Undo action' : 'Complete action'}
-						on:click={() =>
-							subtask.completed
-								? onUndoSubtask(taskIdx, subtaskIdx)
-								: onLogSubtask(taskIdx, subtaskIdx)}
-						type="button"
-					>
-						{subtask.completed ? '✕' : '✓'}
-					</button>
+					<div class="subtask-actions">
+						<button
+							class={`check-btn ${subtask.status === 'done' ? 'done' : ''} ${subtask.status === 'skipped' ? 'skipped' : ''}`}
+							aria-label={subtask.status === 'done' ? 'Undo action' : 'Complete action'}
+							on:click={() =>
+								subtask.status === 'done'
+									? onUndoSubtask(taskIdx, subtaskIdx)
+									: onLogSubtask(taskIdx, subtaskIdx, 'done')}
+							type="button"
+						>
+							{subtask.status === 'done' ? '✕' : '✓'}
+						</button>
+						<button
+							class={`skip-btn ${subtask.status === 'skipped' ? 'on' : ''}`}
+							type="button"
+							aria-label={subtask.status === 'skipped' ? 'Undo skip' : 'Skip action'}
+							on:click={() =>
+								subtask.status === 'skipped'
+									? onUndoSubtask(taskIdx, subtaskIdx)
+									: onSkipSubtask(taskIdx, subtaskIdx)}
+						>
+							{subtask.status === 'skipped' ? '↺' : '⇥'}
+						</button>
+					</div>
 				{/each}
 			</div>
 		</div>
@@ -175,6 +189,42 @@ export let onDelete: (() => void) | null = null;
 		background: #dc2626;
 		border-color: #b91c1c;
 		color: white;
+	}
+
+	.check-btn.skipped {
+		background: #e2e8f0;
+		border-color: #cbd5e1;
+		color: #0f172a;
+	}
+
+	.skip-btn {
+		height: 42px;
+		border-radius: 12px;
+		border: 1px dashed #cbd5e1;
+		background: white;
+		color: #475569;
+		font-size: 13px;
+		font-weight: 700;
+		padding: 0 10px;
+		cursor: pointer;
+		transition: all 0.12s ease;
+	}
+
+	.skip-btn:hover {
+		border-color: #94a3b8;
+		color: #0f172a;
+	}
+
+	.skip-btn.on {
+		background: #f8fafc;
+		border-color: #cbd5e1;
+		color: #0f172a;
+	}
+
+	.subtask-actions {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 	}
 
 	.delete-pill {

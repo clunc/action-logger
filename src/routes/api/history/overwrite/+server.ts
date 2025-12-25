@@ -12,7 +12,10 @@ const isValidEntry = (entry: unknown): entry is HistoryEntry => {
 		typeof candidate.task === 'string' &&
 		typeof candidate.subtaskNumber === 'number' &&
 		typeof candidate.durationSeconds === 'number' &&
-		typeof candidate.timestamp === 'string'
+		typeof candidate.timestamp === 'string' &&
+		(candidate.status === undefined ||
+			candidate.status === 'done' ||
+			candidate.status === 'skipped')
 	);
 };
 

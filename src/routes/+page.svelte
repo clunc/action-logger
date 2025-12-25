@@ -122,11 +122,11 @@
 		}
 	}
 
-	async function handleSubtaskAction(taskIdx: number, subtaskIdx: number) {
-		await startSubtaskAndLog(taskIdx, subtaskIdx);
+	async function handleSubtaskAction(taskIdx: number, subtaskIdx: number, status: 'done' | 'skipped' = 'done') {
+		await startSubtaskAndLog(taskIdx, subtaskIdx, status);
 	}
 
-	async function startSubtaskAndLog(taskIdx: number, subtaskIdx: number) {
+	async function startSubtaskAndLog(taskIdx: number, subtaskIdx: number, status: 'done' | 'skipped') {
 		const task = currentSession[taskIdx];
 		const subtask = task.subtasks[subtaskIdx];
 		if (subtask.completed) return;
@@ -137,16 +137,18 @@
 		const prevHistory = [...history];
 		const prevTaskState = JSON.stringify(currentSession);
 
-		subtask.completed = true;
+		subtask.completed = status === 'done';
 		subtask.timestamp = timestamp;
 		subtask.durationSeconds = durationSeconds;
+		subtask.status = status;
 
 		const entry: HistoryEntry = {
 			taskId: task.id,
 			task: task.name,
 			subtaskNumber: subtask.subtaskNumber,
 			durationSeconds,
-			timestamp
+			timestamp,
+			status
 		};
 
 		history = [entry, ...history];
@@ -170,7 +172,7 @@
 	async function undoSubtask(taskIdx: number, subtaskIdx: number) {
 		const task = currentSession[taskIdx];
 		const subtask = task.subtasks[subtaskIdx];
-		if (!subtask.completed || !subtask.timestamp) return;
+		if (!subtask.timestamp) return;
 
 		const prevHistory = [...history];
 		const prevTaskState = JSON.stringify(currentSession);
@@ -205,12 +207,12 @@
 		}
 
 		const index = history.findIndex(
-			(h) =>
-				h.subtaskNumber === entry.subtaskNumber &&
-				h.timestamp === entry.timestamp &&
-				((entry.taskId && h.taskId === entry.taskId) ||
-					(!entry.taskId && h.taskId == null && h.task === entry.task) ||
-					(allowNameFallback && h.task === entry.task))
+				(h) =>
+					h.subtaskNumber === entry.subtaskNumber &&
+					h.timestamp === entry.timestamp &&
+					((entry.taskId && h.taskId === entry.taskId) ||
+						(!entry.taskId && h.taskId == null && h.task === entry.task) ||
+						(allowNameFallback && h.task === entry.task))
 		);
 
 		if (index !== -1) {
@@ -220,6 +222,7 @@
 
 		subtask.completed = false;
 		subtask.timestamp = null;
+		subtask.status = 'pending';
 		currentSession = [...currentSession];
 
 		await syncHistory();
@@ -651,17 +654,18 @@
 				<span class="add-title">Add task</span>
 			</button>
 			{#each currentSession as task, taskIdx}
-				<TaskCard
-					task={task}
-					taskIdx={taskIdx}
-					recurrenceLabel={recurrenceLabels[templateKey(task)] ?? 'Recurring'}
-					pillarLabel={task.pillar}
-					pillarEmoji={task.pillarEmoji}
-					onLogSubtask={handleSubtaskAction}
-					onUndoSubtask={undoSubtask}
-					onDelete={task.oneOffId ? () => openDeleteModal(task.oneOffId as number, task.name) : null}
-				/>
-			{/each}
+			<TaskCard
+				task={task}
+				taskIdx={taskIdx}
+				recurrenceLabel={recurrenceLabels[templateKey(task)] ?? 'Recurring'}
+				pillarLabel={task.pillar}
+				pillarEmoji={task.pillarEmoji}
+				onLogSubtask={handleSubtaskAction}
+				onUndoSubtask={undoSubtask}
+				onSkipSubtask={(idx, subIdx) => handleSubtaskAction(idx, subIdx, 'skipped')}
+				onDelete={task.oneOffId ? () => openDeleteModal(task.oneOffId as number, task.name) : null}
+			/>
+		{/each}
 
 			<HistoryList entries={todaysHistory} subtaskLabelsMap={subtaskLabelsMap} />
 		</div>

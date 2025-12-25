@@ -23,7 +23,9 @@ const formatEntryLabel = (entry: HistoryEntry) => {
 					<span class="history-date">{formatTimestamp(entry.timestamp)}</span>
 				</div>
 				<div class="history-set">
-					{#if entry.durationSeconds > 0}
+					{#if entry.status === 'skipped'}
+						Skipped
+					{:else if entry.durationSeconds > 0}
 						Completed in {entry.durationSeconds} seconds
 					{:else}
 						Completed
