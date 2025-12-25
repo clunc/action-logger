@@ -396,6 +396,9 @@
 			] as string[]
 		)
 	);
+	$: if (ready) {
+		currentSession = mergeInProgressSession(createSession(allTemplates, history));
+	}
 
 	const calculateMonthlyAccordance = (entries: HistoryEntry[]) => {
 		const today = new Date();
