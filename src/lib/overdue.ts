@@ -22,7 +22,7 @@ const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 const mockTodayString =
 	(typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_MOCK_TODAY) ||
 	(typeof process !== 'undefined' ? process.env?.MOCK_TODAY : undefined);
-const parsedMockToday = mockTodayString ? new Date(`${mockTodayString}T12:00:00Z`) : null;
+const parsedMockToday = mockTodayString ? new Date(`${mockTodayString}T20:00:00Z`) : null;
 const mockToday = parsedMockToday && !Number.isNaN(parsedMockToday.getTime()) ? parsedMockToday : null;
 const isDevMode =
 	(typeof process !== 'undefined' && process.env?.APP_ENV === 'dev') ||
