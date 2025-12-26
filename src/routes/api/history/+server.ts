@@ -15,7 +15,8 @@ const isValidEntry = (entry: unknown): entry is HistoryEntry => {
 		typeof candidate.timestamp === 'string' &&
 		(candidate.status === undefined ||
 			candidate.status === 'done' ||
-			candidate.status === 'skipped')
+			candidate.status === 'skipped' ||
+			candidate.status === 'in-progress')
 	);
 };
 

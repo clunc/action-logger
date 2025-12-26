@@ -15,10 +15,11 @@
 	export let isOneOff: boolean = false;
 
 	$: isPicked = task.subtasks.some((subtask) => subtask.completed);
+	$: hasInProgress = task.subtasks.some((subtask) => subtask.status === 'in-progress');
 	$: recurrenceIcon = isOneOff ? '📌' : '🔁';
 </script>
 
-<section class={`card ${isPicked ? 'picked' : ''}`}>
+<section class={`card ${isPicked ? 'picked' : ''} ${hasInProgress ? 'in-progress' : ''}`}>
 	<header class="card-header">
 		<div class="card-row top">
 			<div class="pill-row">
@@ -53,15 +54,19 @@
 				{#each task.subtasks as subtask, subtaskIdx}
 					<div class="subtask-actions">
 						<button
-							class={`check-btn ${subtask.status === 'done' ? 'done' : ''} ${subtask.status === 'skipped' ? 'skipped' : ''}`}
-							aria-label={subtask.status === 'done' ? 'Undo action' : 'Complete action'}
+							class={`check-btn ${subtask.status === 'done' ? 'done' : ''} ${subtask.status === 'skipped' ? 'skipped' : ''} ${subtask.status === 'in-progress' ? 'progress' : ''}`}
+							aria-label={subtask.status === 'done'
+								? 'Undo action'
+								: subtask.status === 'in-progress'
+									? 'Complete action'
+									: 'Start action'}
 							on:click={() =>
 								subtask.status === 'done'
 									? onUndoSubtask(taskIdx, subtaskIdx)
 									: onLogSubtask(taskIdx, subtaskIdx, 'done')}
 							type="button"
 						>
-							{subtask.status === 'done' ? '✕' : '✓'}
+							{subtask.status === 'done' ? '✕' : subtask.status === 'in-progress' ? '✓' : '▶'}
 						</button>
 						{#if showSkip}
 							<button
@@ -97,6 +102,12 @@
 		background: #ecfdf3;
 		border-color: #bbf7d0;
 		box-shadow: 0 4px 14px rgba(16, 185, 129, 0.18);
+	}
+
+	.card.in-progress {
+		background: #fffbeb;
+		border-color: #fef3c7;
+		box-shadow: 0 4px 14px rgba(234, 179, 8, 0.18);
 	}
 
 	.card-header {
@@ -207,6 +218,19 @@
 		background: #dc2626;
 		border-color: #b91c1c;
 		color: white;
+	}
+
+	.check-btn.progress {
+		background: #d1fae5;
+		border-color: #a7f3d0;
+		color: #065f46;
+		box-shadow: 0 2px 6px rgba(16, 185, 129, 0.18);
+	}
+
+	.check-btn.progress:hover {
+		background: #a7f3d0;
+		border-color: #6ee7b7;
+		color: #064e3b;
 	}
 
 	.check-btn.skipped {

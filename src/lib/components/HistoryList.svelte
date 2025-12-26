@@ -25,6 +25,8 @@ const formatEntryLabel = (entry: HistoryEntry) => {
 				<div class="history-set">
 					{#if entry.status === 'skipped'}
 						Skipped
+					{:else if entry.status === 'in-progress'}
+						In progress
 					{:else if entry.durationSeconds > 0}
 						Completed in {entry.durationSeconds} seconds
 					{:else}

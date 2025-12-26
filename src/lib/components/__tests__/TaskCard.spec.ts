@@ -12,6 +12,7 @@ const sessionTask = (overrides: Partial<SessionTask> = {}): SessionTask => ({
 			durationSeconds: 0,
 			completed: false,
 			timestamp: null,
+			startedAt: null,
 			status: 'pending'
 		}
 	],
@@ -55,5 +56,26 @@ describe('TaskCard', () => {
 		const skipBtn = getByLabelText('Skip action');
 		await fireEvent.click(skipBtn);
 		expect(onSkipSubtask).toHaveBeenCalled();
+	});
+
+	it('renders a distinct in-progress state', () => {
+		const task = sessionTask({
+			subtasks: [
+				{
+					subtaskNumber: 1,
+					durationSeconds: 0,
+					completed: false,
+					timestamp: null,
+					startedAt: '2024-01-01T00:00:00.000Z',
+					status: 'in-progress'
+				}
+			]
+		});
+
+		const { getByLabelText, container } = render(TaskCard, baseTask({ task }));
+		const btn = getByLabelText('Complete action');
+		expect(btn.className).toContain('progress');
+		const card = container.querySelector('.card');
+		expect(card?.className).toContain('in-progress');
 	});
 });

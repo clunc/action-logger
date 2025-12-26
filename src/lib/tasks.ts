@@ -27,11 +27,13 @@ export function createSession(template: TaskTemplate[], history: HistoryEntry[])
 			);
 
 			if (todaysLog) {
+				const isInProgress = todaysLog.status === 'in-progress';
 				return {
 					subtaskNumber,
 					durationSeconds: todaysLog.durationSeconds,
-					completed: todaysLog.status === 'skipped' ? false : true,
+					completed: todaysLog.status === 'skipped' ? false : !isInProgress,
 					timestamp: todaysLog.timestamp,
+					startedAt: isInProgress ? todaysLog.timestamp : null,
 					status: todaysLog.status ?? 'done'
 				};
 			}
@@ -41,6 +43,7 @@ export function createSession(template: TaskTemplate[], history: HistoryEntry[])
 				durationSeconds: 0,
 				completed: false,
 				timestamp: null,
+				startedAt: null,
 				status: 'pending'
 			};
 		});

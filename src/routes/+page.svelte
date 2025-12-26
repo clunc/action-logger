@@ -172,18 +172,71 @@
 	async function startSubtaskAndLog(taskIdx: number, subtaskIdx: number, status: 'done' | 'skipped') {
 		const task = currentSession[taskIdx];
 		const subtask = task.subtasks[subtaskIdx];
-		if (subtask.completed) return;
+		if (status === 'done' && subtask.completed) return;
 
-		const timestamp = new Date().toISOString();
-		const durationSeconds = 0;
+		const allowNameFallback = currentSession.filter((t) => t.name === task.name).length === 1;
+
+		// First tap: move from pending to in-progress, persist the active state.
+		if (status === 'done' && subtask.status !== 'in-progress') {
+			const startedAt = new Date().toISOString();
+			const prevHistory = [...history];
+			const prevTaskState = JSON.stringify(currentSession);
+
+			subtask.status = 'in-progress';
+			subtask.startedAt = startedAt;
+			subtask.completed = false;
+			subtask.timestamp = startedAt;
+
+			const entry: HistoryEntry = {
+				taskId: task.id,
+				task: task.name,
+				subtaskNumber: subtask.subtaskNumber,
+				durationSeconds: 0,
+				timestamp: startedAt,
+				status: 'in-progress',
+				occurrenceDate: task.dueDate ?? startedAt.slice(0, 10)
+			};
+
+			history = [entry, ...history];
+			currentSession = [...currentSession];
+
+			if (!loadError) {
+				try {
+					await appendHistory([entry]);
+				} catch (error) {
+					console.error(error);
+					loadError = 'Could not start action; reverted.';
+					history = prevHistory;
+					currentSession = JSON.parse(prevTaskState);
+				}
+			}
+			return;
+		}
+
+		const completionTime = new Date();
+		const timestamp = completionTime.toISOString();
+		const startedAtIso = subtask.startedAt ?? subtask.timestamp ?? timestamp;
+		const startedAtMs = new Date(startedAtIso).getTime();
+		const durationSeconds =
+			status === 'skipped'
+				? 0
+				: Math.max(1, Math.round((completionTime.getTime() - startedAtMs) / 1000)) || 0;
 
 		const prevHistory = [...history];
 		const prevTaskState = JSON.stringify(currentSession);
+
+		const matchesSubtask = (h: HistoryEntry) =>
+			h.subtaskNumber === subtask.subtaskNumber &&
+			((task.id && h.taskId === task.id) || (!task.id && h.taskId == null && h.task === task.name) || (allowNameFallback && h.task === task.name));
+
+		const inProgressEntry = history.find((h) => h.status === 'in-progress' && matchesSubtask(h));
+		history = history.filter((h) => !(h.status === 'in-progress' && matchesSubtask(h)));
 
 		subtask.completed = status === 'done';
 		subtask.timestamp = timestamp;
 		subtask.durationSeconds = durationSeconds;
 		subtask.status = status;
+		subtask.startedAt = null;
 
 		const entry: HistoryEntry = {
 			taskId: task.id,
@@ -200,11 +253,19 @@
 
 		if (!loadError) {
 			try {
+				if (inProgressEntry) {
+					await deleteHistoryEntry({
+						taskId: inProgressEntry.taskId ?? undefined,
+						task: inProgressEntry.task,
+						subtaskNumber: inProgressEntry.subtaskNumber,
+						timestamp: inProgressEntry.timestamp
+					});
+				}
 				await appendHistory([entry]);
 				await syncHistory();
 			} catch (error) {
 				console.error(error);
-				loadError = 'Could not save action; reverted.';
+				loadError = status === 'done' ? 'Could not save action; reverted.' : 'Could not save skip; reverted.';
 				history = prevHistory;
 				currentSession = JSON.parse(prevTaskState);
 			}
@@ -266,6 +327,8 @@
 
 		subtask.completed = false;
 		subtask.timestamp = null;
+		subtask.startedAt = null;
+		subtask.durationSeconds = 0;
 		subtask.status = 'pending';
 		currentSession = [...currentSession];
 
@@ -293,7 +356,15 @@
 					const durationSeconds = Number.isFinite(currentSubtask.durationSeconds)
 						? currentSubtask.durationSeconds
 						: subtask.durationSeconds;
-					return { ...subtask, durationSeconds: durationSeconds || 0 };
+					const mergedStatus =
+						subtask.status && subtask.status !== 'pending' ? subtask.status : currentSubtask.status;
+					return {
+						...subtask,
+						durationSeconds: durationSeconds || 0,
+						status: mergedStatus ?? subtask.status,
+						timestamp: subtask.timestamp ?? currentSubtask.timestamp ?? null,
+						startedAt: currentSubtask.startedAt ?? subtask.startedAt ?? null
+					};
 				}
 
 				return subtask;
