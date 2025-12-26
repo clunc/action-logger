@@ -1,5 +1,3 @@
-import { isDevEnv } from './env';
-
 const DEFAULT_DEV_DATE = '2025-12-25';
 
 const readMockToday = () => {
@@ -16,6 +14,21 @@ const readMockToday = () => {
 
 	return null;
 };
+
+const isDevEnv = (() => {
+	if (typeof import.meta !== 'undefined') {
+		const metaEnv = (import.meta as any).env;
+		const val = metaEnv?.APP_ENV ?? metaEnv?.MODE;
+		if (val === 'dev' || val === 'development') return true;
+	}
+
+	if (typeof process !== 'undefined') {
+		const val = process.env.APP_ENV ?? process.env.NODE_ENV;
+		if (val === 'dev' || val === 'development') return true;
+	}
+
+	return false;
+})();
 
 const mockTodayString = (() => {
 	const explicit = readMockToday();
