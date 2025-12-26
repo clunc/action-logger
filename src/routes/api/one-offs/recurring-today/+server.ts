@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { isRecurrenceActiveOnDate } from '$lib/recurrence';
-import { toDateString } from '$lib/date';
+import { now, toDateString } from '$lib/date';
 import { createOneOff, listOneOffs } from '$lib/server/oneOffStore';
 import { loadRecurringTemplates } from '$lib/server/taskTemplates';
 import type { RequestHandler } from './$types';
@@ -10,7 +10,7 @@ const dedupeKey = (task: RecurringTaskTemplate) => `${task.title.toLowerCase()}|
 
 export const POST: RequestHandler = async () => {
 	try {
-		const today = new Date();
+		const today = now();
 		const todayStr = toDateString(today);
 
 		const [templates, existing] = await Promise.all([

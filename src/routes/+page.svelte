@@ -11,6 +11,7 @@
 	import { sortTemplatesByOverdue } from '$lib/taskSorting';
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
+	import { now, todayIsoString } from '$lib/date';
 
 	export let data: PageData;
 
@@ -178,7 +179,7 @@
 
 		// First tap: move from pending to in-progress, persist the active state.
 		if (status === 'done' && subtask.status !== 'in-progress') {
-			const startedAt = new Date().toISOString();
+			const startedAt = now().toISOString();
 			const prevHistory = [...history];
 			const prevTaskState = JSON.stringify(currentSession);
 
@@ -213,7 +214,7 @@
 			return;
 		}
 
-		const completionTime = new Date();
+		const completionTime = now();
 		const timestamp = completionTime.toISOString();
 		const startedAtIso = subtask.startedAt ?? subtask.timestamp ?? timestamp;
 		const startedAtMs = new Date(startedAtIso).getTime();
@@ -443,7 +444,7 @@
 		oneOffs.map((task) => {
 			const key = `oneoff-${task.id}`;
 			if (!task.scheduled_for) return [key, 'One-off'];
-			const todayIso = new Date().toISOString().slice(0, 10);
+			const todayIso = todayIsoString();
 			const isToday = task.scheduled_for === todayIso;
 			return [key, isToday ? 'One-off (today)' : `One-off (due ${task.scheduled_for})`];
 		})
@@ -487,7 +488,7 @@
 	}
 
 	const calculateMonthlyAccordance = (entries: HistoryEntry[]) => {
-		const today = new Date();
+		const today = now();
 		const year = today.getFullYear();
 		const month = today.getMonth();
 		const daysSoFar = today.getDate();

@@ -1,8 +1,9 @@
 import type { HistoryEntry, SubtaskEntry, SessionTask, TaskTemplate } from './types';
+import { todayDisplayString } from './date';
 
 export const DEFAULT_SUBTASK_SECONDS = 65;
 
-export const todayString = () => new Date().toDateString();
+export const todayString = () => todayDisplayString();
 
 export function createSession(template: TaskTemplate[], history: HistoryEntry[]): SessionTask[] {
 	const today = todayString();

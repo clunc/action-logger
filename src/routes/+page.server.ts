@@ -6,9 +6,10 @@ import { createOneOff } from '$lib/server/oneOffStore';
 import { createRecurringTask } from '$lib/server/recurringStore';
 import { readHistory, replaceHistory, appendHistory } from '$lib/server/historyStore';
 import type { OneOffTask, RecurringTask, TaskTemplate } from '$lib/types';
-import { isRecurrenceActiveOnDate, isRecurrenceActiveToday } from '$lib/recurrence';
+import { isRecurrenceActiveOnDate } from '$lib/recurrence';
 import { isDevEnv } from '$lib/env';
 import { seededHistory, seededOneOffs, seededRecurring, seededTemplates } from '$lib/devSeed';
+import { now, todayIsoString } from '$lib/date';
 
 const slugify = (value: string) =>
 	value
@@ -19,14 +20,14 @@ const slugify = (value: string) =>
 
 export const load: PageServerLoad = async () => {
 	try {
-		const today = new Date();
-		const todayIso = today.toISOString().slice(0, 10);
+		const today = now();
+		const todayIso = todayIsoString();
 		let { template, version } = await loadTaskTemplate();
 		const { map: pillarEmojiMap } = await loadPillarEmojiMap();
 		let recurring = await listRecurringTasks();
 		let oneOffs = await listOneOffs();
-		const active = template.filter((item) => isRecurrenceActiveToday(item.recurrence));
-		const inactive = template.filter((item) => !isRecurrenceActiveToday(item.recurrence));
+		const active = template.filter((item) => isRecurrenceActiveOnDate(item.recurrence, today));
+		const inactive = template.filter((item) => !isRecurrenceActiveOnDate(item.recurrence, today));
 
 		const sortByPriority = (items: TaskTemplate[]) =>
 			[...items].sort((a, b) => {

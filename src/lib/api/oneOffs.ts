@@ -1,10 +1,10 @@
 import type { OneOffTask, OneOffTaskTemplate } from '$lib/types';
-import { toDateString } from '$lib/date';
+import { todayIsoString } from '$lib/date';
 
 const ENDPOINT = '/api/one-offs';
 
 export async function createOneOffClient(input: Partial<OneOffTaskTemplate>): Promise<OneOffTask> {
-	const today = toDateString(new Date());
+	const today = todayIsoString();
 	const payload = {
 		task: {
 			...input,

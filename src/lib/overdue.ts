@@ -1,4 +1,5 @@
 import type { HistoryEntry, RecurrenceRule } from '$lib/types';
+import { now as currentNow } from './date';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const dailyGraceHours = 6; // show daily overdue near end-of-day only, never the next morning
@@ -19,21 +20,7 @@ const weekdayOrder: Record<string, number> = {
 
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 
-const mockTodayString =
-	(typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_MOCK_TODAY) ||
-	(typeof process !== 'undefined' ? process.env?.MOCK_TODAY : undefined);
-const parsedMockToday = mockTodayString ? new Date(`${mockTodayString}T20:00:00Z`) : null;
-const mockToday = parsedMockToday && !Number.isNaN(parsedMockToday.getTime()) ? parsedMockToday : null;
-const isDevMode =
-	(typeof process !== 'undefined' && process.env?.APP_ENV === 'dev') ||
-	(typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'development') ||
-	(typeof import.meta !== 'undefined' && (import.meta as any).env?.APP_ENV === 'dev');
-
-const resolveNow = (override?: Date) => {
-	if (override) return override;
-	if (isDevMode && mockToday) return mockToday;
-	return new Date();
-};
+const resolveNow = (override?: Date) => (override ? override : currentNow());
 
 const startOfDay = (date: Date) => {
 	const d = new Date(date);

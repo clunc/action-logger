@@ -1,4 +1,5 @@
 import type { RecurrenceRule, WeekdayAbbrev } from '$lib/types';
+import { now } from './date';
 
 const WEEKDAY_NAMES: WeekdayAbbrev[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -26,5 +27,5 @@ export function isRecurrenceActiveOnDate(recurrence: RecurrenceRule | undefined,
 }
 
 export function isRecurrenceActiveToday(recurrence: RecurrenceRule | undefined): boolean {
-	return isRecurrenceActiveOnDate(recurrence, new Date());
+	return isRecurrenceActiveOnDate(recurrence, now());
 }
