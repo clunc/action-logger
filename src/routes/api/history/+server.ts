@@ -1,65 +1,66 @@
 import { json } from '@sveltejs/kit';
-import { appendHistory, deleteTodayEntry, getHistoryBackendStatus, readHistory } from '$lib/server/historyStore';
 import type { RequestHandler } from './$types';
+import { readHistory, replaceHistory, appendHistory } from '$lib/server/historyStore';
 import type { HistoryEntry } from '$lib/types';
 
-const isValidEntry = (entry: unknown): entry is HistoryEntry => {
-	if (!entry || typeof entry !== 'object') return false;
-
-	const candidate = entry as Record<string, unknown>;
-	return (
-		(candidate.taskId === undefined || typeof candidate.taskId === 'string') &&
-		typeof candidate.task === 'string' &&
-		typeof candidate.subtaskNumber === 'number' &&
-		typeof candidate.durationSeconds === 'number' &&
-		typeof candidate.timestamp === 'string' &&
-		(candidate.status === undefined ||
-			candidate.status === 'done' ||
-			candidate.status === 'skipped' ||
-			candidate.status === 'in-progress')
-	);
+const toHistoryArray = (payload: unknown): HistoryEntry[] => {
+	if (Array.isArray(payload)) return payload as HistoryEntry[];
+	if (payload && typeof payload === 'object') return [payload as HistoryEntry];
+	return [];
 };
+
+const toCriteriaArray = (payload: unknown): Partial<HistoryEntry>[] => {
+	if (Array.isArray(payload)) return payload as Partial<HistoryEntry>[];
+	if (payload && typeof payload === 'object') return [payload as Partial<HistoryEntry>];
+	return [];
+};
+
+const hasCriteria = (crit: Partial<HistoryEntry>) =>
+	crit.taskId !== undefined ||
+	crit.task !== undefined ||
+	crit.subtaskNumber !== undefined ||
+	crit.timestamp !== undefined ||
+	crit.occurrenceDate !== undefined ||
+	crit.status !== undefined;
+
+const matches = (entry: HistoryEntry, crit: Partial<HistoryEntry>) =>
+	(crit.taskId === undefined || entry.taskId === crit.taskId) &&
+	(crit.task === undefined || entry.task === crit.task) &&
+	(crit.subtaskNumber === undefined || entry.subtaskNumber === crit.subtaskNumber) &&
+	(crit.timestamp === undefined || entry.timestamp === crit.timestamp) &&
+	(crit.occurrenceDate === undefined || entry.occurrenceDate === crit.occurrenceDate) &&
+	(crit.status === undefined || entry.status === crit.status);
 
 export const GET: RequestHandler = async () => {
 	const history = await readHistory();
-	return json({ history, backend: getHistoryBackendStatus() });
+	return json(history);
 };
 
 export const PUT: RequestHandler = async ({ request }) => {
-	const body = await request.json().catch(() => null);
-	const entries = (body as { entries?: unknown })?.entries;
+	const body = (await request.json().catch(() => [])) as unknown;
+	const entries = toHistoryArray(body);
+	await replaceHistory(entries);
+	return json({ ok: true, count: entries.length });
+};
 
-	if (!Array.isArray(entries) || !entries.every(isValidEntry)) {
-		return json({ error: 'Invalid entries payload' }, { status: 400 });
-	}
-
+export const POST: RequestHandler = async ({ request }) => {
+	const body = (await request.json().catch(() => [])) as unknown;
+	const entries = toHistoryArray(body);
+	if (!entries.length) return json({ ok: false, message: 'No entries provided' }, { status: 400 });
 	await appendHistory(entries);
-	return json({ ok: true });
+	return json({ ok: true, count: entries.length });
 };
 
 export const DELETE: RequestHandler = async ({ request }) => {
-	const body = await request.json().catch(() => null);
-	const entry = (body as { entry?: unknown })?.entry;
-
-	if (
-		!entry ||
-		typeof entry !== 'object' ||
-		((entry as Record<string, unknown>).taskId !== undefined &&
-			typeof (entry as Record<string, unknown>).taskId !== 'string') ||
-		typeof (entry as Record<string, unknown>).task !== 'string' ||
-		typeof (entry as Record<string, unknown>).timestamp !== 'string' ||
-		typeof (entry as Record<string, unknown>).subtaskNumber !== 'number'
-	) {
-		return json({ error: 'Invalid delete payload' }, { status: 400 });
+	const body = (await request.json().catch(() => [])) as unknown;
+	const criteriaList = toCriteriaArray(body).filter(hasCriteria);
+	if (!criteriaList.length) {
+		return json({ ok: false, message: 'No delete criteria provided' }, { status: 400 });
 	}
 
-	const { taskId, task, subtaskNumber, timestamp } = entry as {
-		taskId?: string;
-		task: string;
-		subtaskNumber: number;
-		timestamp: string;
-	};
-
-	const deleted = await deleteTodayEntry({ taskId, task, subtaskNumber, timestamp });
-	return json({ ok: true, deleted });
+	const all = await readHistory();
+	const filtered = all.filter((entry) => !criteriaList.some((crit) => matches(entry, crit)));
+	const removed = all.length - filtered.length;
+	await replaceHistory(filtered);
+	return json({ ok: true, removed });
 };

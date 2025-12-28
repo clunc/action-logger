@@ -255,3 +255,24 @@ export async function deleteOneOffById(id: number): Promise<number> {
 		return all.length - filtered.length;
 	}
 }
+
+export async function deleteAllOneOffs(): Promise<number> {
+	if (!Database) {
+		const existing = await readJson();
+		await writeJson([]);
+		return existing.length;
+	}
+
+	try {
+		const paths = await ensureDbFile();
+		const db = initDb(paths.dbFile);
+		const result = db.prepare(`DELETE FROM one_offs`).run();
+		db.close();
+		return result.changes ?? 0;
+	} catch (error) {
+		console.error('oneOffStore: failed to delete all one-offs', error);
+		const existing = await readJson();
+		await writeJson([]);
+		return existing.length;
+	}
+}

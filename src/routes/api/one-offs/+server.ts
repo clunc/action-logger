@@ -1,5 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { createOneOff, deleteOneOffById, getOneOffBackendStatus, listOneOffs } from '$lib/server/oneOffStore';
+import {
+	createOneOff,
+	deleteAllOneOffs,
+	deleteOneOffById,
+	getOneOffBackendStatus,
+	listOneOffs
+} from '$lib/server/oneOffStore';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -28,14 +34,20 @@ export const POST: RequestHandler = async ({ request }) => {
 
 export const DELETE: RequestHandler = async ({ url }) => {
 	const idParam = url.searchParams.get('id');
-	const id = Number(idParam);
-	if (!Number.isInteger(id) || id <= 0) {
-		return json({ error: 'Invalid id' }, { status: 400 });
-	}
+	const id = idParam ? Number(idParam) : null;
 
 	try {
+		if (id === null) {
+			const deleted = await deleteAllOneOffs();
+			return json({ ok: true, deleted });
+		}
+
+		if (!Number.isInteger(id) || id <= 0) {
+			return json({ error: 'Invalid id' }, { status: 400 });
+		}
+
 		const deleted = await deleteOneOffById(id);
-		return json({ ok: true, deleted });
+		return json({ ok: true, deleted, mode: 'single' });
 	} catch (error) {
 		console.error('one-offs DELETE failed', error);
 		return json({ error: 'Failed to delete task' }, { status: 400 });

@@ -1,5 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { createRecurringTask, deleteRecurringById, getRecurringBackendStatus, listRecurringTasks } from '$lib/server/recurringStore';
+import {
+	createRecurringTask,
+	deleteAllRecurring,
+	deleteRecurringById,
+	getRecurringBackendStatus,
+	listRecurringTasks
+} from '$lib/server/recurringStore';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
@@ -27,14 +33,20 @@ export const POST: RequestHandler = async ({ request }) => {
 
 export const DELETE: RequestHandler = async ({ url }) => {
 	const idParam = url.searchParams.get('id');
-	const id = Number(idParam);
-	if (!Number.isInteger(id) || id <= 0) {
-		return json({ error: 'Invalid id' }, { status: 400 });
-	}
+	const id = idParam ? Number(idParam) : null;
 
 	try {
+		if (id === null) {
+			const deleted = await deleteAllRecurring();
+			return json({ ok: true, deleted });
+		}
+
+		if (!Number.isInteger(id) || id <= 0) {
+			return json({ error: 'Invalid id' }, { status: 400 });
+		}
+
 		const deleted = await deleteRecurringById(id);
-		return json({ ok: true, deleted });
+		return json({ ok: true, deleted, mode: 'single' });
 	} catch (error) {
 		console.error('recurring DELETE failed', error);
 		return json({ error: 'Failed to delete task' }, { status: 400 });

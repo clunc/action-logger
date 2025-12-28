@@ -335,6 +335,27 @@ export async function deleteRecurringById(id: number): Promise<number> {
 	}
 }
 
+export async function deleteAllRecurring(): Promise<number> {
+	if (!Database) {
+		const existing = await readJson();
+		await writeJson([]);
+		return existing.length;
+	}
+
+	try {
+		const paths = await ensureDbFile();
+		const db = initDb(paths.dbFile);
+		const result = db.prepare(`DELETE FROM recurring_tasks`).run();
+		db.close();
+		return result.changes ?? 0;
+	} catch (error) {
+		console.error('recurringStore: failed to delete all recurring tasks', error);
+		const existing = await readJson();
+		await writeJson([]);
+		return existing.length;
+	}
+}
+
 export function getRecurringBackendStatus() {
 	return {
 		sqliteAvailable: Boolean(Database),
