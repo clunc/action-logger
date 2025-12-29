@@ -76,7 +76,17 @@ export const load: PageServerLoad = async () => {
 				return bPri - aPri;
 			});
 
-		const combined = [...prioritize([...active, ...recurringTemplates]), ...prioritize(inactive)].map((item, idx) => ({
+		const includeToday = (item: TaskTemplate) => {
+			if (item.isOneOff) {
+				if (!item.dueDate) return false;
+				return item.dueDate <= todayIso; // show due today or overdue
+			}
+			return isRecurrenceActiveOnDate(item.recurrence, today);
+		};
+
+		const todayOnly = [...template, ...recurringTemplates].filter(includeToday);
+
+		const combined = prioritize(todayOnly).map((item, idx) => ({
 			...item,
 			id: pickId(item, idx),
 			dueDate: isRecurrenceActiveOnDate(item.recurrence, today) ? todayIso : item.dueDate
