@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import YAML from 'yaml';
 import type { PillarEmojiMap, TaskTemplate, WeekdayAbbrev, RecurrenceRule } from '$lib/types';
-import { DEFAULT_DATA_DIR } from '$lib/env';
+import { DEFAULT_DATA_DIR, isDevEnv } from '$lib/env';
 
 const DATA_DIR = DEFAULT_DATA_DIR;
 const TODOS_FILE = path.join(DATA_DIR, 'todos.yaml');
@@ -220,13 +220,16 @@ async function ensureTemplateFile() {
 		.catch(() => false);
 	if (hasStretches) return STRETCHES_FILE;
 
+	// In production we do not auto-create default templates; API/DB own all tasks.
+	if (!isDevEnv) return null;
+
 	const fallback: TaskTemplate[] = [
-	{ name: 'Plan the day', defaultDurationSeconds: 300, pillar: 'Planning', pillarEmoji: '🧭' },
-	{ name: 'Inbox triage', defaultDurationSeconds: 600, pillar: 'Operations', pillarEmoji: '🛠️' },
-	{ name: 'Deep work block', defaultDurationSeconds: 1500, pillar: 'Focus', pillarEmoji: '🎯' },
-	{ name: 'Walk and reset', defaultDurationSeconds: 600, pillar: 'Recovery', pillarEmoji: '🌿' },
-	{ name: 'Shutdown routine', defaultDurationSeconds: 420, pillar: 'Planning', pillarEmoji: '🧭' }
-];
+		{ name: 'Plan the day', defaultDurationSeconds: 300, pillar: 'Planning', pillarEmoji: '🧭' },
+		{ name: 'Inbox triage', defaultDurationSeconds: 600, pillar: 'Operations', pillarEmoji: '🛠️' },
+		{ name: 'Deep work block', defaultDurationSeconds: 1500, pillar: 'Focus', pillarEmoji: '🎯' },
+		{ name: 'Walk and reset', defaultDurationSeconds: 600, pillar: 'Recovery', pillarEmoji: '🌿' },
+		{ name: 'Shutdown routine', defaultDurationSeconds: 420, pillar: 'Planning', pillarEmoji: '🧭' }
+	];
 	const yaml = YAML.stringify(fallback);
 	await fs.writeFile(TODOS_FILE, yaml, 'utf8');
 	return TODOS_FILE;
@@ -235,6 +238,14 @@ async function ensureTemplateFile() {
 export async function loadStretchTemplate(): Promise<{ template: TaskTemplate[]; version: number }> {
 	const { map: pillarEmojiMap } = await loadPillarEmojiMap();
 	const templatePath = await ensureTemplateFile();
+
+	// Production: no template file means no base tasks.
+	if (!templatePath) {
+		const version = Date.now();
+		cachedTemplate = { mtimeMs: version, value: [], file: '' };
+		return { template: [], version };
+	}
+
 	const stats = await fs.stat(templatePath);
 
 	if (cachedTemplate && cachedTemplate.mtimeMs === stats.mtimeMs && cachedTemplate.file === templatePath) {
@@ -255,6 +266,7 @@ export const getTaskTemplateVersion = getStretchTemplateVersion;
 
 export async function getStretchTemplateVersion(): Promise<number> {
 	const templatePath = await ensureTemplateFile();
+	if (!templatePath) return Date.now();
 	const stats = await fs.stat(templatePath);
 	return stats.mtimeMs;
 }
