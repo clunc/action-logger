@@ -15,7 +15,7 @@ export async function fetchHistory(): Promise<HistoryEntry[]> {
 
 export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 	const res = await fetch(HISTORY_ENDPOINT, {
-		method: 'PUT',
+		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ entries })
 	});
