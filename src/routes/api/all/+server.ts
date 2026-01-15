@@ -3,7 +3,6 @@ import type { RequestHandler } from './$types';
 import { loadTaskTemplate, loadPillarEmojiMap } from '$lib/server/taskConfig';
 import { listRecurringTasks, createRecurringTask } from '$lib/server/recurringStore';
 import { listOneOffs, createOneOff } from '$lib/server/oneOffStore';
-import { readHistory } from '$lib/server/historyStore';
 import { isDevEnv } from '$lib/env';
 import { seededTemplates, seededRecurring, seededOneOffs } from '$lib/devSeed';
 import { todayIsoString } from '$lib/date';
@@ -30,15 +29,12 @@ export const GET: RequestHandler = async () => {
 			}
 		}
 
-		const history = await readHistory();
-
 		return json({
 			templates: template,
 			templateVersion: version,
 			recurringTasks,
 			oneOffs,
-			pillarEmojiMap,
-			history
+			pillarEmojiMap
 		});
 	} catch (error) {
 		console.error('Failed to load all data', error);

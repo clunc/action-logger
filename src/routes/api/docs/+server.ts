@@ -25,12 +25,12 @@ export const GET: RequestHandler = async () => {
 			{
 				path: '/api/all',
 				method: 'GET',
-				description: 'Return templates, recurring tasks, one-offs, pillar emoji map, and history in one call (seeds in dev).',
+				description: 'Return templates, recurring tasks, one-offs, and pillar emoji map in one call (seeds in dev).',
 				query: [],
 				body: null,
 				responses: {
 					ok: {
-						description: 'Aggregated data: { templates, templateVersion, recurringTasks, oneOffs, pillarEmojiMap, history }'
+						description: 'Aggregated data: { templates, templateVersion, recurringTasks, oneOffs, pillarEmojiMap }'
 					},
 					error: { description: '500 with { error }' }
 				}
