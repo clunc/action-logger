@@ -4,7 +4,7 @@ export type HistoryEntry = {
 	subtaskNumber: number;
 	durationSeconds: number;
 	timestamp: string;
-	status?: 'done' | 'skipped' | 'in-progress';
+	status?: 'done' | 'skipped' | 'in-progress' | 'scheduled';
 	occurrenceDate?: string;
 };
 
@@ -14,7 +14,7 @@ export type SubtaskEntry = {
 	completed: boolean;
 	timestamp: string | null;
 	startedAt?: string | null;
-	status?: 'pending' | 'in-progress' | 'done' | 'skipped';
+	status?: 'pending' | 'in-progress' | 'done' | 'skipped' | 'scheduled';
 };
 
 export type SessionTask = {

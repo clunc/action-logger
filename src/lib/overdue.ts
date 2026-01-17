@@ -49,6 +49,7 @@ const hasCompletionOnDate = (
 		(entry) =>
 			matchesTask(entry, taskId, taskName) &&
 			entry.status !== undefined &&
+			entry.status !== 'scheduled' &&
 			(entry.occurrenceDate ?? entry.timestamp.slice(0, 10)) === targetIso
 	);
 

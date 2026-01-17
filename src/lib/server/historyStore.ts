@@ -156,7 +156,9 @@ async function readHistoryJson(): Promise<HistoryEntry[]> {
 							? 'skipped'
 							: (entry as any).status === 'in-progress'
 								? 'in-progress'
-								: 'done',
+								: (entry as any).status === 'scheduled'
+									? 'scheduled'
+									: 'done',
 					occurrenceDate:
 						typeof (entry as any).occurrenceDate === 'string'
 							? (entry as any).occurrenceDate
@@ -194,7 +196,14 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 		db.close();
 		return (rows as any[]).map((row) => ({
 			...row,
-			status: row.status === 'skipped' ? 'skipped' : row.status === 'in-progress' ? 'in-progress' : 'done',
+			status:
+				row.status === 'skipped'
+					? 'skipped'
+					: row.status === 'in-progress'
+						? 'in-progress'
+						: row.status === 'scheduled'
+							? 'scheduled'
+							: 'done',
 			occurrenceDate:
 				typeof row.occurrenceDate === 'string' && row.occurrenceDate
 					? row.occurrenceDate
@@ -209,7 +218,14 @@ export async function readHistory(): Promise<HistoryEntry[]> {
 export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 	const normalized = entries.map<HistoryEntry>((entry) => ({
 		...entry,
-		status: entry.status === 'skipped' ? 'skipped' : entry.status === 'in-progress' ? 'in-progress' : 'done',
+		status:
+			entry.status === 'skipped'
+				? 'skipped'
+				: entry.status === 'in-progress'
+					? 'in-progress'
+					: entry.status === 'scheduled'
+						? 'scheduled'
+						: 'done',
 		occurrenceDate: entry.occurrenceDate ?? entry.timestamp.slice(0, 10)
 	}));
 
@@ -242,7 +258,14 @@ export async function appendHistory(entries: HistoryEntry[]): Promise<void> {
 export async function replaceHistory(entries: HistoryEntry[]): Promise<void> {
 	const normalized = entries.map<HistoryEntry>((entry) => ({
 		...entry,
-		status: entry.status === 'skipped' ? 'skipped' : entry.status === 'in-progress' ? 'in-progress' : 'done',
+		status:
+			entry.status === 'skipped'
+				? 'skipped'
+				: entry.status === 'in-progress'
+					? 'in-progress'
+					: entry.status === 'scheduled'
+						? 'scheduled'
+						: 'done',
 		occurrenceDate: entry.occurrenceDate ?? entry.timestamp.slice(0, 10)
 	}));
 

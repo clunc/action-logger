@@ -28,14 +28,26 @@ export function createSession(template: TaskTemplate[], history: HistoryEntry[])
 			);
 
 			if (todaysLog) {
-				const isInProgress = todaysLog.status === 'in-progress';
+				const status = todaysLog.status ?? 'done';
+				const isInProgress = status === 'in-progress';
+				const isDone = status === 'done';
+				const isSkipped = status === 'skipped';
+				const isScheduled = status === 'scheduled';
 				return {
 					subtaskNumber,
 					durationSeconds: todaysLog.durationSeconds,
-					completed: todaysLog.status === 'skipped' ? false : !isInProgress,
+					completed: isDone,
 					timestamp: todaysLog.timestamp,
 					startedAt: isInProgress ? todaysLog.timestamp : null,
-					status: todaysLog.status ?? 'done'
+					status: isInProgress
+						? 'in-progress'
+						: isDone
+							? 'done'
+							: isSkipped
+								? 'skipped'
+								: isScheduled
+									? 'scheduled'
+									: 'pending'
 				};
 			}
 

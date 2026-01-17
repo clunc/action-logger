@@ -171,9 +171,25 @@
 		const subtask = task.subtasks[subtaskIdx];
 		if (subtask.status === 'in-progress' || subtask.status === 'done' || subtask.status === 'skipped') return;
 
+		const allowNameFallback = currentSession.filter((t) => t.name === task.name).length === 1;
+		const todayIso = todayIsoString();
 		const startedAt = now().toISOString();
 		const prevHistory = [...history];
 		const prevTaskState = JSON.stringify(currentSession);
+
+		const matchesSubtask = (h: HistoryEntry) =>
+			h.subtaskNumber === subtask.subtaskNumber &&
+			((task.id && h.taskId === task.id) || (!task.id && h.taskId == null && h.task === task.name) || (allowNameFallback && h.task === task.name));
+
+		// Remove any scheduled placeholder for today.
+		history = history.filter(
+			(h) =>
+				!(
+					h.status === 'scheduled' &&
+					(h.occurrenceDate ?? h.timestamp.slice(0, 10)) === todayIso &&
+					matchesSubtask(h)
+				)
+		);
 
 		subtask.status = 'in-progress';
 		subtask.startedAt = startedAt;
@@ -215,6 +231,7 @@
 		const timestamp = completionTime.toISOString();
 		const startedAtIso = subtask.startedAt ?? subtask.timestamp ?? timestamp;
 		const startedAtMs = new Date(startedAtIso).getTime();
+		const todayIso = todayIsoString();
 
 		const prevHistory = [...history];
 		const prevTaskState = JSON.stringify(currentSession);
@@ -224,7 +241,15 @@
 			((task.id && h.taskId === task.id) || (!task.id && h.taskId == null && h.task === task.name) || (allowNameFallback && h.task === task.name));
 
 		const inProgressEntry = history.find((h) => h.status === 'in-progress' && matchesSubtask(h));
-		history = history.filter((h) => !(h.status === 'in-progress' && matchesSubtask(h)));
+		history = history.filter(
+			(h) =>
+				!(h.status === 'in-progress' && matchesSubtask(h)) &&
+				!(
+					h.status === 'scheduled' &&
+					(h.occurrenceDate ?? h.timestamp.slice(0, 10)) === todayIso &&
+					matchesSubtask(h)
+				)
+		);
 
 		const durationSeconds =
 			status === 'skipped'
@@ -278,6 +303,7 @@
 		const subtask = task.subtasks[subtaskIdx];
 		if (!subtask.timestamp) return;
 
+		const todayIso = todayIsoString();
 		const prevHistory = [...history];
 		const prevTaskState = JSON.stringify(currentSession);
 
@@ -329,6 +355,29 @@
 		subtask.startedAt = null;
 		subtask.durationSeconds = 0;
 		subtask.status = 'pending';
+		const occurrenceDate = matchingHistory?.occurrenceDate ?? matchingHistory?.timestamp?.slice(0, 10);
+		const shouldRestoreScheduled = occurrenceDate === todayIso;
+		if (shouldRestoreScheduled) {
+			const hasScheduled = history.some(
+				(h) =>
+					h.status === 'scheduled' &&
+					h.subtaskNumber === subtask.subtaskNumber &&
+					((task.id && h.taskId === task.id) || (!task.id && h.taskId == null && h.task === task.name) || (allowNameFallback && h.task === task.name)) &&
+					(h.occurrenceDate ?? h.timestamp.slice(0, 10)) === todayIso
+			);
+			if (!hasScheduled) {
+				const scheduledEntry: HistoryEntry = {
+					taskId: task.id,
+					task: task.name,
+					subtaskNumber: subtask.subtaskNumber,
+					durationSeconds: 0,
+					timestamp: `${todayIso}T00:00:00.000Z`,
+					status: 'scheduled',
+					occurrenceDate: todayIso
+				};
+				history = [scheduledEntry, ...history];
+			}
+		}
 		currentSession = [...currentSession];
 
 		await syncHistory();
@@ -373,9 +422,13 @@
 		});
 	}
 
-	$: todaysHistory = history.filter(
-		(entry) => new Date(entry.timestamp).toDateString() === todayString()
-	);
+	$: todaysHistory = history.filter((entry) => {
+		const entryDate = entry.occurrenceDate ?? entry.timestamp.slice(0, 10);
+		return (
+			new Date(entryDate).toDateString() === todayString() &&
+			entry.status !== 'scheduled'
+		);
+	});
 
 	$: totalSubtasks = currentSession.reduce((sum, task) => sum + task.subtasks.length, 0);
 	$: completedSubtasks = currentSession.reduce(
