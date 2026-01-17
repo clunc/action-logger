@@ -8,6 +8,7 @@ import { readHistory, replaceHistory, appendHistory } from '$lib/server/historyS
 import type { OneOffTask, RecurringTask, TaskTemplate } from '$lib/types';
 import { isRecurrenceActiveOnDate } from '$lib/recurrence';
 import { isDevEnv } from '$lib/env';
+import { seedScheduledHistory } from '$lib/server/scheduledHistory';
 import { seededHistory, seededOneOffs, seededRecurring, seededTemplates } from '$lib/devSeed';
 import { now, todayIsoString } from '$lib/date';
 
@@ -109,68 +110,7 @@ export const load: PageServerLoad = async () => {
 			await replaceHistory(history);
 		}
 
-		const occurrenceFor = (entry: any) => entry.occurrenceDate ?? String(entry.timestamp ?? '').slice(0, 10);
-		const matchesSubtask = (entry: any, taskId: string | undefined, taskName: string, subtaskNumber: number) =>
-			(taskId ? entry.taskId === taskId : entry.task === taskName) && entry.subtaskNumber === subtaskNumber;
-
-		const hasNonScheduledOnDate = (
-			targetDate: string,
-			taskId: string | undefined,
-			taskName: string,
-			subtaskNumber: number,
-			list: typeof history
-		) =>
-			list.some(
-				(h) =>
-					matchesSubtask(h, taskId, taskName, subtaskNumber) &&
-					occurrenceFor(h) === targetDate &&
-					h.status !== 'scheduled'
-			);
-
-		let reconciled = [...history];
-
-		// Ensure today's scheduled rows exist for every due subtask.
-		const dueToday = combined;
-		for (const task of dueToday) {
-			const totalSubtasks = Math.max(1, task.subtaskLabels?.length ?? 1);
-			for (let i = 1; i <= totalSubtasks; i++) {
-				const already = reconciled.some(
-					(h) => matchesSubtask(h, task.id, task.name, i) && occurrenceFor(h) === todayIso
-				);
-				if (!already) {
-					reconciled = [
-						{
-							taskId: task.id,
-							task: task.name,
-							subtaskNumber: i,
-							durationSeconds: 0,
-							timestamp: `${todayIso}T00:00:00.000Z`,
-							status: 'scheduled' as const,
-							occurrenceDate: todayIso
-						},
-						...reconciled
-					];
-				}
-			}
-		}
-
-		// Drop scheduled rows where a real status exists for the same day/subtask.
-		reconciled = reconciled.filter(
-			(entry) =>
-				entry.status !== 'scheduled' ||
-				!hasNonScheduledOnDate(
-					occurrenceFor(entry),
-					entry.taskId ?? undefined,
-					entry.task,
-					entry.subtaskNumber,
-					reconciled
-				)
-		);
-
-		if (reconciled.length !== history.length || JSON.stringify(reconciled) !== JSON.stringify(history)) {
-			history = reconciled;
-			await replaceHistory(history);
-		}
+		history = await seedScheduledHistory({ targetDate: today, history, tasks: combined });
 
 		// Dev seed to quickly test business logic without touching prod data.
 		if (isDevEnv) {
