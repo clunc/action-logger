@@ -166,62 +166,55 @@
 		}
 	}
 
-	async function handleSubtaskAction(taskIdx: number, subtaskIdx: number, status: 'done' | 'skipped' = 'done') {
-		await startSubtaskAndLog(taskIdx, subtaskIdx, status);
-	}
-
-	async function startSubtaskAndLog(taskIdx: number, subtaskIdx: number, status: 'done' | 'skipped') {
+	async function startSubtaskTimer(taskIdx: number, subtaskIdx: number) {
 		const task = currentSession[taskIdx];
 		const subtask = task.subtasks[subtaskIdx];
-		if (status === 'done' && subtask.completed) return;
+		if (subtask.status === 'in-progress' || subtask.status === 'done' || subtask.status === 'skipped') return;
+
+		const startedAt = now().toISOString();
+		const prevHistory = [...history];
+		const prevTaskState = JSON.stringify(currentSession);
+
+		subtask.status = 'in-progress';
+		subtask.startedAt = startedAt;
+		subtask.completed = false;
+		subtask.timestamp = startedAt;
+
+		const entry: HistoryEntry = {
+			taskId: task.id,
+			task: task.name,
+			subtaskNumber: subtask.subtaskNumber,
+			durationSeconds: 0,
+			timestamp: startedAt,
+			status: 'in-progress',
+			occurrenceDate: task.dueDate ?? startedAt.slice(0, 10)
+		};
+
+		history = [entry, ...history];
+		currentSession = [...currentSession];
+
+		if (!loadError) {
+			try {
+				await appendHistory([entry]);
+			} catch (error) {
+				console.error(error);
+				loadError = 'Could not start action; reverted.';
+				history = prevHistory;
+				currentSession = JSON.parse(prevTaskState);
+			}
+		}
+	}
+
+	async function completeSubtask(taskIdx: number, subtaskIdx: number, status: 'done' | 'skipped' = 'done') {
+		const task = currentSession[taskIdx];
+		const subtask = task.subtasks[subtaskIdx];
+		if (status === 'done' && subtask.status === 'done') return;
 
 		const allowNameFallback = currentSession.filter((t) => t.name === task.name).length === 1;
-
-		// First tap: move from pending to in-progress, persist the active state.
-		if (status === 'done' && subtask.status !== 'in-progress') {
-			const startedAt = now().toISOString();
-			const prevHistory = [...history];
-			const prevTaskState = JSON.stringify(currentSession);
-
-			subtask.status = 'in-progress';
-			subtask.startedAt = startedAt;
-			subtask.completed = false;
-			subtask.timestamp = startedAt;
-
-			const entry: HistoryEntry = {
-				taskId: task.id,
-				task: task.name,
-				subtaskNumber: subtask.subtaskNumber,
-				durationSeconds: 0,
-				timestamp: startedAt,
-				status: 'in-progress',
-				occurrenceDate: task.dueDate ?? startedAt.slice(0, 10)
-			};
-
-			history = [entry, ...history];
-			currentSession = [...currentSession];
-
-			if (!loadError) {
-				try {
-					await appendHistory([entry]);
-				} catch (error) {
-					console.error(error);
-					loadError = 'Could not start action; reverted.';
-					history = prevHistory;
-					currentSession = JSON.parse(prevTaskState);
-				}
-			}
-			return;
-		}
-
 		const completionTime = now();
 		const timestamp = completionTime.toISOString();
 		const startedAtIso = subtask.startedAt ?? subtask.timestamp ?? timestamp;
 		const startedAtMs = new Date(startedAtIso).getTime();
-		const durationSeconds =
-			status === 'skipped'
-				? 0
-				: Math.max(1, Math.round((completionTime.getTime() - startedAtMs) / 1000)) || 0;
 
 		const prevHistory = [...history];
 		const prevTaskState = JSON.stringify(currentSession);
@@ -232,6 +225,13 @@
 
 		const inProgressEntry = history.find((h) => h.status === 'in-progress' && matchesSubtask(h));
 		history = history.filter((h) => !(h.status === 'in-progress' && matchesSubtask(h)));
+
+		const durationSeconds =
+			status === 'skipped'
+				? 0
+				: subtask.status === 'in-progress'
+					? Math.max(1, Math.round((completionTime.getTime() - startedAtMs) / 1000)) || 0
+					: subtask.durationSeconds || 0;
 
 		subtask.completed = status === 'done';
 		subtask.timestamp = timestamp;
@@ -271,8 +271,6 @@
 				currentSession = JSON.parse(prevTaskState);
 			}
 		}
-
-		// Timers removed; mark complete instantly.
 	}
 
 	async function undoSubtask(taskIdx: number, subtaskIdx: number) {
@@ -794,9 +792,10 @@
 					overdue={shouldShowSkip(task)}
 					pillarLabel={task.pillar}
 					pillarEmoji={task.pillarEmoji}
-					onLogSubtask={handleSubtaskAction}
+					onStartSubtask={startSubtaskTimer}
+					onCompleteSubtask={completeSubtask}
 					onUndoSubtask={undoSubtask}
-					onSkipSubtask={(idx, subIdx) => handleSubtaskAction(idx, subIdx, 'skipped')}
+					onSkipSubtask={(idx, subIdx) => completeSubtask(idx, subIdx, 'skipped')}
 					showSkip={shouldShowSkip(task)}
 					onDelete={task.oneOffId ? () => openDeleteModal(task.oneOffId as number, task.name) : null}
 				/>

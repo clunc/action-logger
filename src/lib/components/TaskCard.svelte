@@ -3,7 +3,8 @@
 
 	export let task: SessionTask;
 	export let taskIdx: number;
-	export let onLogSubtask: (taskIdx: number, subtaskIdx: number, status?: 'done' | 'skipped') => void;
+	export let onStartSubtask: (taskIdx: number, subtaskIdx: number) => void;
+	export let onCompleteSubtask: (taskIdx: number, subtaskIdx: number, status?: 'done' | 'skipped') => void;
 	export let onUndoSubtask: (taskIdx: number, subtaskIdx: number) => void;
 	export let recurrenceLabel: string = 'Daily';
 	export let pillarLabel: string | undefined = undefined;
@@ -54,19 +55,28 @@
 				{#each task.subtasks as subtask, subtaskIdx}
 					<div class="subtask-actions">
 						<button
+							class={`play-btn ${subtask.status === 'in-progress' ? 'active' : ''}`}
+							aria-label={subtask.status === 'in-progress' ? 'Action in progress' : 'Start timer'}
+							on:click={() => onStartSubtask(taskIdx, subtaskIdx)}
+							type="button"
+							disabled={subtask.status === 'in-progress' || subtask.status === 'done' || subtask.status === 'skipped'}
+						>
+							<span class="btn-icon">{subtask.status === 'in-progress' ? '⏱' : '▶'}</span>
+						</button>
+						<button
 							class={`check-btn ${subtask.status === 'done' ? 'done' : ''} ${subtask.status === 'skipped' ? 'skipped' : ''} ${subtask.status === 'in-progress' ? 'progress' : ''}`}
 							aria-label={subtask.status === 'done'
 								? 'Undo action'
 								: subtask.status === 'in-progress'
 									? 'Complete action'
-									: 'Start action'}
+									: 'Mark done'}
 							on:click={() =>
 								subtask.status === 'done'
 									? onUndoSubtask(taskIdx, subtaskIdx)
-									: onLogSubtask(taskIdx, subtaskIdx, 'done')}
+									: onCompleteSubtask(taskIdx, subtaskIdx, 'done')}
 							type="button"
 						>
-							{subtask.status === 'done' ? '✕' : subtask.status === 'in-progress' ? '✓' : '▶'}
+							<span class="btn-icon">{subtask.status === 'done' ? '✕' : '✓'}</span>
 						</button>
 						{#if showSkip}
 							<button
@@ -173,10 +183,62 @@
 		gap: 10px;
 	}
 
-	.check-btn {
-		width: 42px;
+	.btn-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.play-btn {
+		min-width: 42px;
 		height: 42px;
-		border-radius: 50%;
+		border-radius: 20px;
+		border: 1px solid #bfdbfe;
+		background: #eff6ff;
+		color: #0f172a;
+		font-size: 18px;
+		font-weight: 800;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+		padding: 0 10px;
+		gap: 2px;
+	}
+
+	.play-btn:hover:not(:disabled) {
+		background: #dbeafe;
+		border-color: #bfdbfe;
+	}
+
+	.play-btn:active:not(:disabled) {
+		transform: translateY(1px);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+		background: #bfdbfe;
+		border-color: #93c5fd;
+	}
+
+	.play-btn.active {
+		background: #fff7ed;
+		border-color: #fdba74;
+		color: #9a3412;
+		box-shadow: 0 2px 6px rgba(251, 191, 36, 0.22);
+	}
+
+	.play-btn:disabled {
+		background: #e2e8f0;
+		border-color: #cbd5e1;
+		color: #94a3b8;
+		cursor: not-allowed;
+		box-shadow: none;
+	}
+
+	.check-btn {
+		min-width: 42px;
+		height: 42px;
+		border-radius: 20px;
 		border: 1px solid #c7eed8;
 		background: #e9f9ef;
 		color: #0f172a;
@@ -188,6 +250,8 @@
 		justify-content: center;
 		transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+		padding: 0 10px;
+		gap: 2px;
 	}
 
 	.check-btn:hover {
@@ -247,9 +311,10 @@
 		color: #475569;
 		font-size: 13px;
 		font-weight: 700;
-		padding: 0 10px;
+		padding: 0 12px;
 		cursor: pointer;
 		transition: all 0.12s ease;
+		margin-left: 6px;
 	}
 
 	.skip-btn:hover {
@@ -266,7 +331,7 @@
 	.subtask-actions {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 12px;
 	}
 
 	.delete-pill {

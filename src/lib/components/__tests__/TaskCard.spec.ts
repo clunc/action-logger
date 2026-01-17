@@ -25,7 +25,8 @@ const baseTask = (overrides: Record<string, unknown> = {}) => ({
 	recurrenceLabel: 'Recurring',
 	pillarLabel: 'Planning',
 	pillarEmoji: '🧭',
-	onLogSubtask: vi.fn(),
+	onStartSubtask: vi.fn(),
+	onCompleteSubtask: vi.fn(),
 	onUndoSubtask: vi.fn(),
 	onSkipSubtask: vi.fn(),
 	showSkip: false,
@@ -73,8 +74,8 @@ describe('TaskCard', () => {
 		});
 
 		const { getByLabelText, container } = render(TaskCard, baseTask({ task }));
-		const btn = getByLabelText('Complete action');
-		expect(btn.className).toContain('progress');
+		const startBtn = getByLabelText('Action in progress');
+		expect(startBtn.className).toContain('active');
 		const card = container.querySelector('.card');
 		expect(card?.className).toContain('in-progress');
 	});
