@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY scripts ./scripts
 RUN npm ci
 
 FROM deps AS build
@@ -23,6 +24,7 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
+COPY scripts ./scripts
 RUN npm ci --omit=dev
 COPY --from=build /app/build ./build
 CMD ["node", "build/index.js"]

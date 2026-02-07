@@ -32,10 +32,27 @@ async function copyFile(sourceDir, targetDir, fileName) {
 
 async function main() {
 	try {
+		const swaggerExists = await fs
+			.access(swaggerSourceDir)
+			.then(() => true)
+			.catch(() => false);
+		const redocExists = await fs
+			.access(redocSourceDir)
+			.then(() => true)
+			.catch(() => false);
+
+		if (!swaggerExists && !redocExists) {
+			return;
+		}
+
 		await ensureDir(swaggerTargetDir);
 		await ensureDir(redocTargetDir);
-		await Promise.all(swaggerFiles.map((file) => copyFile(swaggerSourceDir, swaggerTargetDir, file)));
-		await Promise.all(redocFiles.map((file) => copyFile(redocSourceDir, redocTargetDir, file)));
+		if (swaggerExists) {
+			await Promise.all(swaggerFiles.map((file) => copyFile(swaggerSourceDir, swaggerTargetDir, file)));
+		}
+		if (redocExists) {
+			await Promise.all(redocFiles.map((file) => copyFile(redocSourceDir, redocTargetDir, file)));
+		}
 	} catch (error) {
 		console.error('Failed to copy Swagger UI assets', error);
 		process.exitCode = 1;
