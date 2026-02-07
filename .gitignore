@@ -143,3 +143,7 @@ data/
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Vendored API docs assets (generated in postinstall)
+static/swagger-ui/
+static/redoc/

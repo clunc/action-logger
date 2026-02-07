@@ -14,6 +14,7 @@
 		"preview": "vite preview",
 		"preview:host": "vite preview --host --port 4173",
 		"prepare": "svelte-kit sync || echo ''",
+		"postinstall": "node scripts/copy-swagger-ui.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest"
@@ -31,6 +32,8 @@
 		"jsdom": "^27.3.0",
 		"svelte": "^5.45.6",
 		"svelte-check": "^4.3.4",
+		"swagger-ui-dist": "^5.27.0",
+		"redoc": "^2.5.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.2.6",
 		"vitest": "^4.0.16"
