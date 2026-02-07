@@ -1,3 +1,5 @@
+import { TASK_CATEGORIES, WEEKDAY_ABBREVS } from '$lib/types';
+
 export const openApiSpec = {
 	openapi: '3.0.3',
 	info: {
@@ -183,6 +185,7 @@ export const openApiSpec = {
 			},
 			post: {
 				summary: 'Create a recurring task template',
+				description: 'Always creates a new task. Any id/created_at fields in the payload are ignored.',
 				requestBody: {
 					required: true,
 					content: {
@@ -215,6 +218,7 @@ export const openApiSpec = {
 			},
 			delete: {
 				summary: 'Delete recurring tasks',
+				description: 'If id is omitted, deletes all recurring tasks.',
 				parameters: [
 					{
 						name: 'id',
@@ -421,11 +425,11 @@ export const openApiSpec = {
 			},
 			TaskCategory: {
 				type: 'string',
-				enum: ['operational', 'retrospective', 'strategic']
+				enum: [...TASK_CATEGORIES]
 			},
 			WeekdayAbbrev: {
 				type: 'string',
-				enum: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+				enum: [...WEEKDAY_ABBREVS]
 			},
 			RecurrenceRule: {
 				oneOf: [

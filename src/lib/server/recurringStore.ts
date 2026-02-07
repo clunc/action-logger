@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import { TASK_CATEGORIES, WEEKDAY_ABBREVS } from '$lib/types';
 import type { RecurrenceRule, RecurringTask, RecurringTaskTemplate, TaskCategory, WeekdayAbbrev } from '$lib/types';
 import { DEFAULT_DATA_DIR, FALLBACK_DATA_DIR } from '$lib/env';
 const JSON_FILE = path.join(FALLBACK_DATA_DIR, 'recurring.json');
@@ -109,7 +110,7 @@ async function writeJson(entries: RecurringTask[]) {
 }
 
 function assertTaskCategory(value: unknown, label: string): TaskCategory {
-	if (value === 'operational' || value === 'retrospective' || value === 'strategic') return value;
+	if (typeof value === 'string' && (TASK_CATEGORIES as readonly string[]).includes(value)) return value as TaskCategory;
 	throw new Error(`${label} must be one of operational, retrospective, strategic`);
 }
 
@@ -118,7 +119,7 @@ function assertRecurrence(value: unknown, label: string): RecurrenceRule {
 	const { frequency, days, day_of_month, month, day } = value as Record<string, unknown>;
 
 	if (frequency === 'weekly') {
-		const allowed: WeekdayAbbrev[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+		const allowed = WEEKDAY_ABBREVS as readonly WeekdayAbbrev[];
 		const list = Array.isArray(days)
 			? (days
 					.map((d) => String(d).trim())

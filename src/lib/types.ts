@@ -58,14 +58,16 @@ export type TaskTemplate = {
 
 export type PillarEmojiMap = Record<string, string>;
 
-export type WeekdayAbbrev = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat';
+export const WEEKDAY_ABBREVS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+export type WeekdayAbbrev = (typeof WEEKDAY_ABBREVS)[number];
 export type RecurrenceRule =
 	| { frequency: 'daily' }
 	| { frequency: 'weekly'; days?: WeekdayAbbrev[] }
 	| { frequency: 'monthly'; day_of_month?: number }
 	| { frequency: 'yearly'; month?: number; day?: number };
 
-export type TaskCategory = 'operational' | 'retrospective' | 'strategic';
+export const TASK_CATEGORIES = ['operational', 'retrospective', 'strategic'] as const;
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 
 export type RecurringTaskTemplate = {
 	title: string;
