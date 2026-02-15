@@ -23,6 +23,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 # Install Claude and Codex CLIs globally
 RUN npm install -g @anthropic-ai/claude-code @openai/codex
+RUN npm install -g @google/gemini-cli
 
 # Install common Svelte/SvelteKit tools globally
 RUN npm install -g pnpm
