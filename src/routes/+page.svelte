@@ -436,6 +436,11 @@
 		0
 	);
 	$: completionPercent = totalSubtasks === 0 ? 0 : Math.round((completedSubtasks / totalSubtasks) * 100);
+	const isTaskDone = (task: SessionTask) =>
+		task.subtasks.every((subtask) => subtask.status === 'done' || subtask.status === 'skipped');
+	$: sessionIndexed = currentSession.map((task, taskIdx) => ({ task, taskIdx }));
+	$: activeSession = sessionIndexed.filter(({ task }) => !isTaskDone(task));
+	$: doneSession = sessionIndexed.filter(({ task }) => isTaskDone(task));
 
 	const calculateStreak = (entries: HistoryEntry[]) => {
 		const timestamps = entries
@@ -836,23 +841,69 @@
 				<span class="add-icon">＋</span>
 				<span class="add-title">Add task</span>
 			</button>
-			{#each currentSession as task, taskIdx}
-			<TaskCard
-				task={task}
-				taskIdx={taskIdx}
-				recurrenceLabel={recurrenceLabels[templateKey(task)] ?? 'Recurring'}
-					isOneOff={Boolean(task.isOneOff)}
-					overdue={shouldShowSkip(task)}
-					pillarLabel={task.pillar}
-					pillarEmoji={task.pillarEmoji}
-					onStartSubtask={startSubtaskTimer}
-					onCompleteSubtask={completeSubtask}
-					onUndoSubtask={undoSubtask}
-					onSkipSubtask={(idx, subIdx) => completeSubtask(idx, subIdx, 'skipped')}
-					showSkip={shouldShowSkip(task)}
-					onDelete={task.oneOffId ? () => openDeleteModal(task.oneOffId as number, task.name) : null}
-				/>
-			{/each}
+			<section class="action-section active">
+				<div class="section-header">
+					<h2 class="section-title">Active actions</h2>
+					<span class="section-count">{activeSession.length}</span>
+				</div>
+				{#if activeSession.length === 0}
+					<p class="section-empty">All done. Nothing left for today.</p>
+				{:else}
+					{#each activeSession as entry (templateKey(entry.task) + '-' + entry.taskIdx)}
+						<TaskCard
+							task={entry.task}
+							taskIdx={entry.taskIdx}
+							recurrenceLabel={recurrenceLabels[templateKey(entry.task)] ?? 'Recurring'}
+							isOneOff={Boolean(entry.task.isOneOff)}
+							overdue={shouldShowSkip(entry.task)}
+							pillarLabel={entry.task.pillar}
+							pillarEmoji={entry.task.pillarEmoji}
+							onStartSubtask={startSubtaskTimer}
+							onCompleteSubtask={completeSubtask}
+							onUndoSubtask={undoSubtask}
+							onSkipSubtask={(idx, subIdx) => completeSubtask(idx, subIdx, 'skipped')}
+							showSkip={shouldShowSkip(entry.task)}
+							onDelete={
+								entry.task.oneOffId
+									? () => openDeleteModal(entry.task.oneOffId as number, entry.task.name)
+									: null
+							}
+						/>
+					{/each}
+				{/if}
+			</section>
+
+			<section class="action-section done">
+				<div class="section-header">
+					<h2 class="section-title">Done actions</h2>
+					<span class="section-count">{doneSession.length}</span>
+				</div>
+				{#if doneSession.length === 0}
+					<p class="section-empty muted">No completed actions yet.</p>
+				{:else}
+					{#each doneSession as entry (templateKey(entry.task) + '-' + entry.taskIdx)}
+						<TaskCard
+							task={entry.task}
+							taskIdx={entry.taskIdx}
+							recurrenceLabel={recurrenceLabels[templateKey(entry.task)] ?? 'Recurring'}
+							isOneOff={Boolean(entry.task.isOneOff)}
+							overdue={shouldShowSkip(entry.task)}
+							pillarLabel={entry.task.pillar}
+							pillarEmoji={entry.task.pillarEmoji}
+							onStartSubtask={startSubtaskTimer}
+							onCompleteSubtask={completeSubtask}
+							onUndoSubtask={undoSubtask}
+							onSkipSubtask={(idx, subIdx) => completeSubtask(idx, subIdx, 'skipped')}
+							showSkip={shouldShowSkip(entry.task)}
+							onDelete={
+								entry.task.oneOffId
+									? () => openDeleteModal(entry.task.oneOffId as number, entry.task.name)
+									: null
+							}
+						/>
+					{/each}
+				{/if}
+			</section>
 
 			<HistoryList entries={todaysHistory} subtaskLabelsMap={subtaskLabelsMap} />
 		</div>
@@ -1374,6 +1425,55 @@
 	.oneoff-add-button:active {
 		transform: translateY(1px);
 		box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+	}
+
+	.action-section {
+		margin-top: 14px;
+	}
+
+	.section-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin: 10px 4px 8px;
+	}
+
+	.section-title {
+		font-size: 14px;
+		font-weight: 800;
+		color: #1f2937;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+	}
+
+	.section-count {
+		background: #eef2f7;
+		color: #475569;
+		border: 1px solid #dce3ee;
+		padding: 4px 10px;
+		border-radius: 999px;
+		font-size: 12px;
+		font-weight: 800;
+	}
+
+	.section-empty {
+		padding: 10px 12px;
+		border-radius: 10px;
+		border: 1px dashed #d4dbe7;
+		background: #f8fafc;
+		color: #475569;
+		font-size: 13px;
+		margin-bottom: 8px;
+	}
+
+	.section-empty.muted {
+		color: #94a3b8;
+		background: #f9fafb;
+	}
+
+	:global(.action-section.done .card) {
+		opacity: 0.72;
+		box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 	}
 
 	.oneoff-add-text {
